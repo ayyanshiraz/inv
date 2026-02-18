@@ -1,65 +1,119 @@
-import Image from "next/image";
+import { PrismaClient } from '@prisma/client'
+import Link from 'next/link'
+import { getDashboardStats } from '@/actions/actions'
+import { Calendar, ShoppingCart, Users, Percent, ArrowLeftRight, TrendingUp, DollarSign } from 'lucide-react'
 
-export default function Home() {
+const prisma = new PrismaClient()
+export const dynamic = 'force-dynamic' 
+
+export default async function Dashboard({ searchParams }: { searchParams: Promise<{ from?: string, to?: string }> }) {
+  
+  const params = await searchParams
+  const from = params.from ? new Date(params.from) : undefined
+  const to = params.to ? new Date(params.to) : undefined
+  
+  const stats = await getDashboardStats(from, to)
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-[#f3f4f6] p-8 ml-64 font-sans">
+      
+      {/* HEADER + DATE FILTER */}
+      <div className="flex justify-between items-center mb-10">
+        <div>
+          <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tight">Fahad Traders</h1>
+          <div className="flex items-center gap-2 text-slate-500 text-sm font-bold mt-1">
+            <Calendar size={14} />
+            <span>{from ? from.toLocaleDateString() : 'All Time'} — {to ? to.toLocaleDateString() : 'Present'}</span>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        
+        {/* Simple Date Filter Form */}
+        <form className="flex gap-2 items-center bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+            <input type="date" name="from" className="text-xs font-bold uppercase text-slate-600 outline-none" />
+            <span className="text-slate-300">/</span>
+            <input type="date" name="to" className="text-xs font-bold uppercase text-slate-600 outline-none" />
+            <button type="submit" className="bg-slate-900 text-white p-2 rounded-lg hover:bg-black">
+                <ArrowLeftRight size={14} />
+            </button>
+        </form>
+      </div>
+
+      {/* --- CARDS GRID --- */}
+      <div className="grid grid-cols-4 gap-6 mb-8">
+        
+        {/* REVENUE */}
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+                <h2 className="text-2xl font-black text-slate-800">{stats.netRevenue.toLocaleString()}</h2>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Net Revenue</p>
+            </div>
+            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                <DollarSign size={24} />
+            </div>
         </div>
-      </main>
-    </div>
-  );
+
+        {/* PROFIT MARGIN */}
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+                <h2 className="text-2xl font-black text-slate-800">{stats.profitMargin}%</h2>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Profit Margin</p>
+            </div>
+            <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-600">
+                <Percent size={24} />
+            </div>
+        </div>
+
+        {/* PROFIT */}
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+                <h2 className="text-2xl font-black text-slate-800">{stats.profit.toLocaleString()}</h2>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Net Profit</p>
+            </div>
+            <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                <TrendingUp size={24} />
+            </div>
+        </div>
+
+        {/* RECEIVABLES (FIXED: Now White Background + Dark Text) */}
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+                <h2 className="text-2xl font-black text-slate-800">{stats.totalReceivable.toLocaleString()}</h2>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Receivables</p>
+            </div>
+            <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
+                <ArrowLeftRight size={24} />
+            </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-6 mb-12">
+         {/* SALES COUNT */}
+         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4">
+             <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600">
+                <ShoppingCart size={18} />
+             </div>
+             <div>
+                 <h3 className="text-xl font-black text-slate-800">{stats.salesCount}</h3>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase">Sales Count</p>
+             </div>
+         </div>
+
+         {/* CUSTOMER COUNT */}
+         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4">
+             <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
+                <Users size={18} />
+             </div>
+             <div>
+                 <h3 className="text-xl font-black text-slate-800">{stats.customerCount}</h3>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase">Customers</p>
+             </div>
+         </div>
+         
+         {/* SYSTEM STATUS */}
+         <div className="col-span-2 bg-slate-200/50 rounded-3xl flex items-center justify-center border border-dashed border-slate-300">
+             <p className="text-xs font-bold text-slate-400 uppercase">System Status: Online</p>
+         </div>
+      </div>
+    </main>
+  )
 }
