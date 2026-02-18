@@ -2,12 +2,13 @@
   "name": "invoicer-app",
   "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
+"scripts": {
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start",
+  "lint": "next lint",
+  "postinstall": "prisma generate" 
+}, 
   "dependencies": {
     "@prisma/adapter-pg": "^7.4.0",
     "jose": "^6.1.3",
