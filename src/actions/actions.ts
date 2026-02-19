@@ -20,23 +20,26 @@ export async function saveProduct(formData: FormData) {
   const id = formData.get('id') as string
   const name = formData.get('name') as string
   const category = formData.get('category') as string
-  const cost = parseFloat(formData.get('cost') as string) || 0
-  // Selling price is now 0 by default. It is decided manually at the invoice level.
-  const price = 0 
-  const stock = 1000 
+  const cost = Number(formData.get('cost')) || 0
+  
+  // FIX: Correctly capture the 'price' from the form
+  const price = Number(formData.get('price')) || 0 
 
+  // FIX: Find product by simple ID to avoid 'id_userId' index errors
   const existing = await prisma.product.findUnique({ where: { id } })
 
   if (existing && existing.userId !== userId) throw new Error("Unauthorized")
 
   if (existing) {
+    // FIX: Sync updated 'price' to the database
     await prisma.product.update({
       where: { id },
       data: { name, category, cost, price }
     })
   } else {
+    // FIX: Include 'price' when creating new products
     await prisma.product.create({
-      data: { id, name, category, cost, price, stock, userId }
+      data: { id, name, category, cost, price, stock: 1000, userId }
     })
   }
 
@@ -45,7 +48,6 @@ export async function saveProduct(formData: FormData) {
   revalidatePath('/invoice/return')
   revalidatePath('/ledger')
 }
-
 export async function deleteProduct(id: string) {
   const userId = await getUser()
   const product = await prisma.product.findUnique({ where: { id } })
@@ -396,7 +398,9 @@ export async function getLedgerReportData(from?: Date, to?: Date) {
         customerLedgers,
         categoryLedgers, // <--- New data passed to frontend
         productSales: Object.values(productSales).sort((a:any, b:any) => b.revenue - a.revenue),
-        stats: {
+        allProducts: await prisma.product.findMany({ where: { userId }, orderBy: { name: 'asc' } }),
+      allCustomers: await prisma.customer.findMany({ where: { userId }, orderBy: { name: 'asc' } }),
+      stats: {
             revenue: periodRevenue,
             profit: periodRevenue - periodCost,
             margin: periodRevenue > 0 ? (((periodRevenue - periodCost) / periodRevenue) * 100).toFixed(1) : 0,

@@ -94,7 +94,6 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
 
         {/* TABS & PRINT */}
         <div className="flex justify-between items-end border-b-2 border-slate-200 pb-3 mb-6 no-print">
-            {/* NEW: Added Category Ledger Tab */}
             <div className="flex gap-6 overflow-x-auto">
                 <Link href={`/ledger?from=${params.from || ''}&to=${params.to || ''}&view=customers`} 
                       className={`text-sm font-black uppercase tracking-widest pb-3 -mb-[14px] border-b-4 transition whitespace-nowrap ${view === 'customers' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>
@@ -107,6 +106,14 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
                 <Link href={`/ledger?from=${params.from || ''}&to=${params.to || ''}&view=products`} 
                       className={`text-sm font-black uppercase tracking-widest pb-3 -mb-[14px] border-b-4 transition whitespace-nowrap ${view === 'products' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>
                     Product Sales
+                </Link>
+                <Link href={`/ledger?from=${params.from || ''}&to=${params.to || ''}&view=inventory_list`} 
+                      className={`text-sm font-black uppercase tracking-widest pb-3 -mb-[14px] border-b-4 transition whitespace-nowrap ${view === 'inventory_list' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>
+                    Product List
+                </Link>
+                <Link href={`/ledger?from=${params.from || ''}&to=${params.to || ''}&view=customer_list`} 
+                      className={`text-sm font-black uppercase tracking-widest pb-3 -mb-[14px] border-b-4 transition whitespace-nowrap ${view === 'customer_list' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>
+                    Customer List
                 </Link>
             </div>
             <PrintButton />
@@ -121,7 +128,7 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
               <div className="text-center mb-6 border-b-2 border-slate-800 pb-6">
                   <h1 className="text-2xl font-black uppercase text-black tracking-widest font-serif mb-1">Fahad Traders</h1>
                   <h2 className="text-base font-bold text-slate-800 mb-1">
-                      {view === 'customers' ? 'Customer Ledger Summary' : view === 'categories' ? 'Category Ledger Summary' : 'Product Sales Summary'}
+                      {view === 'customers' ? 'Customer Ledger Summary' : view === 'categories' ? 'Category Ledger Summary' : view === 'inventory_list' ? 'Active Product List' : view === 'customer_list' ? 'Active Customer List' : 'Product Sales Summary'}
                   </h2>
                   <p className="text-xs font-bold text-slate-500 uppercase">
                       Period: {from ? from.toLocaleDateString() : 'Beginning of Time'} - {to ? to.toLocaleDateString() : 'Present'}
@@ -152,10 +159,11 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
                               <td className="p-3 border border-slate-300 text-right">{c.openingBalance.toLocaleString()}</td>
                               <td className="p-3 border border-slate-300 text-right text-blue-700">{c.invoicedAmount.toLocaleString()}</td>
                               <td className="p-3 border border-slate-300 text-right text-red-600">{c.returnAmount.toLocaleString()}</td>
-                              <td className="p-3 border border-slate-300 text-right text-emerald-600">{c.paidAmount.toLocaleString()}</td>
+                              <td className="p-3 border border-slate-300 text-right text-emerald-700">{c.paidAmount.toLocaleString()}</td>
                               <td className="p-3 border border-slate-300 text-right font-black text-slate-900">{c.closingBalance.toLocaleString()}</td>
                           </tr>
                           ))}
+                          
                           <tr className="bg-slate-100 border-t-2 border-slate-400 font-black text-slate-900 text-xs">
                               <td colSpan={2} className="p-3 border border-slate-300 text-right uppercase">Total Market:</td>
                               <td className="p-3 border border-slate-300 text-right">{data.customerLedgers.reduce((s,c)=>s+c.openingBalance,0).toLocaleString()}</td>
@@ -168,7 +176,7 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
                       </table>
                   )}
 
-                  {/* VIEW 2: CATEGORIES (NEW!) */}
+                  {/* VIEW 2: CATEGORIES */}
                   {view === 'categories' && (
                       <table className="w-full min-w-[800px] text-left border-collapse border border-slate-300">
                       <thead className="bg-slate-100 text-slate-800 text-[10px] font-black uppercase tracking-widest border-b-2 border-slate-300">
@@ -190,7 +198,7 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
                               <td className="p-3 border border-slate-300 text-right">{cat.openingBalance.toLocaleString()}</td>
                               <td className="p-3 border border-slate-300 text-right text-blue-700">{cat.invoicedAmount.toLocaleString()}</td>
                               <td className="p-3 border border-slate-300 text-right text-red-600">{cat.returnAmount.toLocaleString()}</td>
-                              <td className="p-3 border border-slate-300 text-right text-emerald-600">{cat.paidAmount.toLocaleString()}</td>
+                              <td className="p-3 border border-slate-300 text-right text-emerald-700">{cat.paidAmount.toLocaleString()}</td>
                               <td className="p-3 border border-slate-300 text-right font-black text-slate-900">{cat.closingBalance.toLocaleString()}</td>
                           </tr>
                           ))}
@@ -233,6 +241,56 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
                           {data.productSales.length === 0 && (
                               <tr><td colSpan={6} className="p-6 text-center text-slate-400">No products sold in this period.</td></tr>
                           )}
+                      </tbody>
+                      </table>
+                  )}
+
+                  {/* TAB 4: PRODUCT LIST */}
+                  {view === 'inventory_list' && (
+                      <table className="w-full min-w-[700px] text-left border-collapse border border-slate-300">
+                      <thead className="bg-slate-100 text-slate-800 text-[10px] font-black uppercase tracking-widest border-b-2 border-slate-300">
+                          <tr>
+                            <th className="p-3 border border-slate-300 w-12 text-center">Sr.</th>
+                            <th className="p-3 border border-slate-300">Product Name</th>
+                            <th className="p-3 border border-slate-300">Category</th>
+                            <th className="p-3 border border-slate-300 text-right">Cost Price</th>
+                            <th className="p-3 border border-slate-300 text-right">Selling Price</th>
+                          </tr>
+                      </thead>
+                      <tbody className="text-xs font-bold text-slate-700">
+                          {data.allProducts.map((p: any, index: number) => (
+                          <tr key={p.id} className="hover:bg-slate-50 transition">
+                              <td className="p-3 border border-slate-300 text-center text-slate-400">{index + 1}</td>
+                              <td className="p-3 border border-slate-300 uppercase text-slate-900">{p.name}</td>
+                              <td className="p-3 border border-slate-300">{p.category}</td>
+                              <td className="p-3 border border-slate-300 text-right text-red-600">{p.cost.toLocaleString()}</td>
+                              <td className="p-3 border border-slate-300 text-right text-emerald-600 font-black">{p.price?.toLocaleString() || 0}</td>
+                          </tr>
+                          ))}
+                      </tbody>
+                      </table>
+                  )}
+
+                  {/* TAB 5: CUSTOMER LIST */}
+                  {view === 'customer_list' && (
+                      <table className="w-full min-w-[700px] text-left border-collapse border border-slate-300">
+                      <thead className="bg-slate-100 text-slate-800 text-[10px] font-black uppercase tracking-widest border-b-2 border-slate-300">
+                          <tr>
+                            <th className="p-3 border border-slate-300 w-12 text-center">Sr.</th>
+                            <th className="p-3 border border-slate-300">Customer Name</th>
+                            <th className="p-3 border border-slate-300">Phone</th>
+                            <th className="p-3 border border-slate-300">Address</th>
+                          </tr>
+                      </thead>
+                      <tbody className="text-xs font-bold text-slate-700">
+                          {data.allCustomers.map((c: any, index: number) => (
+                          <tr key={c.id} className="hover:bg-slate-50 transition">
+                              <td className="p-3 border border-slate-300 text-center text-slate-400">{index + 1}</td>
+                              <td className="p-3 border border-slate-300 uppercase text-slate-900 font-black">{c.name}</td>
+                              <td className="p-3 border border-slate-300 text-blue-700">{c.phone || '---'}</td>
+                              <td className="p-3 border border-slate-300 italic text-slate-500">{c.address || 'N/A'}</td>
+                          </tr>
+                          ))}
                       </tbody>
                       </table>
                   )}
