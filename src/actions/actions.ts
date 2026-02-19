@@ -301,3 +301,106 @@ export async function getCustomerInvoices(customerId: string) {
     orderBy: { createdAt: 'desc' }
   })
 }
+// ==========================================
+// 5. MASTER LEDGER & REPORTING ENGINE
+// ==========================================
+
+// ==========================================
+// 5. MASTER LEDGER & REPORTING ENGINE
+// ==========================================
+
+export async function getLedgerReportData(from?: Date, to?: Date) {
+    const userId = await getUser()
+    
+    const start = from ? new Date(from) : new Date(0)
+    start.setHours(0, 0, 0, 0)
+    
+    const end = to ? new Date(to) : new Date()
+    end.setHours(23, 59, 59, 999)
+  
+    const customers = await prisma.customer.findMany({ where: { userId }, orderBy: { name: 'asc' } })
+    const allInvoices = await prisma.invoice.findMany({
+      where: { userId },
+      include: { items: { include: { product: true } } }
+    })
+  
+    // 1. CUSTOMER LEDGER
+    const customerLedgers = customers.map(cust => {
+      let openingBalance = 0; let invoicedAmount = 0; let paidAmount = 0; let returnAmount = 0;
+  
+      allInvoices.filter(inv => inv.customerId === cust.id).forEach(inv => {
+        const invDate = new Date(inv.createdAt)
+        const isBefore = invDate < start
+        const isWithin = invDate >= start && invDate <= end
+  
+        const total = inv.totalAmount
+        const paid = inv.paidAmount || 0
+  
+        if (isBefore) {
+          if (inv.isReturn) openingBalance -= total
+          else openingBalance += (total - paid)
+        } else if (isWithin) {
+          if (inv.isReturn) { returnAmount += total; paidAmount += paid; } 
+          else { invoicedAmount += total; paidAmount += paid; }
+        }
+      })
+  
+      return {
+        id: cust.id,
+        name: cust.name,
+        category: cust.category || 'Uncategorized', // Grab the category
+        openingBalance, invoicedAmount, returnAmount, paidAmount,
+        closingBalance: openingBalance + invoicedAmount - returnAmount - paidAmount
+      }
+    })
+
+    // 2. CATEGORY LEDGER (NEW: Grouping Customers by Category)
+    const categoryMap: Record<string, any> = {}
+    customerLedgers.forEach(c => {
+        if (!categoryMap[c.category]) {
+            categoryMap[c.category] = { category: c.category, openingBalance: 0, invoicedAmount: 0, returnAmount: 0, paidAmount: 0, closingBalance: 0 }
+        }
+        categoryMap[c.category].openingBalance += c.openingBalance
+        categoryMap[c.category].invoicedAmount += c.invoicedAmount
+        categoryMap[c.category].returnAmount += c.returnAmount
+        categoryMap[c.category].paidAmount += c.paidAmount
+        categoryMap[c.category].closingBalance += c.closingBalance
+    })
+    // Convert object to sorted array
+    const categoryLedgers = Object.values(categoryMap).sort((a: any, b: any) => a.category.localeCompare(b.category))
+  
+    // 3. PRODUCT SALES
+    let periodRevenue = 0; let periodCost = 0;
+    const productSales: Record<string, any> = {}
+  
+    allInvoices.forEach(inv => {
+       const invDate = new Date(inv.createdAt)
+       if (invDate >= start && invDate <= end && !inv.isReturn) {
+           periodRevenue += inv.totalAmount
+           inv.items.forEach(item => {
+               const pId = item.productId
+               const pCost = item.product?.cost || 0
+               periodCost += (pCost * item.quantity)
+               
+               if (!productSales[pId]) {
+                   productSales[pId] = { name: item.product?.name || 'Unknown', category: item.product?.category || 'Uncategorized', qty: 0, revenue: 0, cost: 0 }
+               }
+               productSales[pId].qty += item.quantity
+               productSales[pId].revenue += (item.price * item.quantity)
+               productSales[pId].cost += (pCost * item.quantity)
+           })
+       }
+    })
+  
+    return {
+        customerLedgers,
+        categoryLedgers, // <--- New data passed to frontend
+        productSales: Object.values(productSales).sort((a:any, b:any) => b.revenue - a.revenue),
+        stats: {
+            revenue: periodRevenue,
+            profit: periodRevenue - periodCost,
+            margin: periodRevenue > 0 ? (((periodRevenue - periodCost) / periodRevenue) * 100).toFixed(1) : 0,
+            receivables: customerLedgers.reduce((sum, c) => sum + c.closingBalance, 0)
+        }
+    }
+}

@@ -15,8 +15,8 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* MOBILE TOP BAR */}
-      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-[#1a1a1a] text-white flex items-center justify-between px-4 z-50 border-b border-slate-800">
+      {/* MOBILE TOP BAR (Now uses lg:hidden so it never shows on laptops) */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#1a1a1a] text-white flex items-center justify-between px-4 z-50 border-b border-slate-800">
         <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-white text-xs">FT</div>
             <h1 className="text-lg font-black uppercase tracking-tight">Fahad Traders</h1>
@@ -27,18 +27,18 @@ export default function Sidebar() {
       </div>
 
       {isOpen && (
-        <div className="md:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
+        <div className="lg:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
       )}
 
       {/* SIDEBAR */}
-      <div className={`w-64 h-screen bg-[#1a1a1a] text-slate-400 fixed left-0 top-0 flex flex-col border-r border-slate-800 z-50 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+      <div className={`w-64 h-screen bg-[#1a1a1a] text-slate-400 fixed left-0 top-0 flex flex-col border-r border-slate-800 z-50 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         
-        <div className="hidden md:block p-8 border-b border-slate-800 bg-[#1a1a1a]">
+        <div className="hidden lg:block p-8 border-b border-slate-800 bg-[#1a1a1a]">
           <h1 className="text-2xl font-black text-white uppercase tracking-tight">Fahad Traders</h1>
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Management System</p>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-2 mt-16 md:mt-0">
+        <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-2 mt-16 lg:mt-0">
           <div className="px-4 mb-2 text-[10px] font-black uppercase text-slate-600 tracking-widest">Main</div>
           <Link href="/" className="flex items-center gap-4 py-3 px-4 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition font-bold"><LayoutDashboard size={18} /> Dashboard</Link>
           <Link href="/invoice/new" className="flex items-center gap-4 py-3 px-4 rounded-lg bg-slate-800 text-white font-bold shadow-md"><Receipt size={18} /> Sale Invoice</Link>
@@ -67,7 +67,6 @@ export default function Sidebar() {
                   </div>
               </div>
               
-              {/* FIX: Replaced form action with a simple clean Link */}
               <Link href="/logout" className="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-800 rounded-lg transition" title="Logout">
                   <LogOut size={18} />
               </Link>

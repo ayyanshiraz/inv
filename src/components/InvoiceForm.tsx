@@ -95,12 +95,19 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
     document.getElementById('search-0')?.focus()
   }
 
-  const handleSelectProduct = (index: number, prod: any) => {
+const handleSelectProduct = (index: number, prod: any) => {
     const newRows = [...rows]
     newRows[index].productId = prod.id
     newRows[index].search = prod.name
-    newRows[index].price = '' 
-    newRows[index].total = 0
+    
+    // NEW: Automatically pull the Default Selling Price from the database!
+    newRows[index].price = prod.price ? prod.price.toString() : '' 
+    
+    // Instantly calculate the row total based on the pulled price
+    const priceNum = Number(newRows[index].price) || 0
+    const qtyNum = Number(newRows[index].quantity) || 0
+    newRows[index].total = priceNum * qtyNum
+
     setRows(newRows)
     setActiveRowDrop(null)
     document.getElementById(`qty-${index}`)?.focus()
