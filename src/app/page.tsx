@@ -1,119 +1,134 @@
 import { PrismaClient } from '@prisma/client'
-import Link from 'next/link'
+import { verifySession } from '@/lib/session'
 import { getDashboardStats } from '@/actions/actions'
-import { Calendar, ShoppingCart, Users, Percent, ArrowLeftRight, TrendingUp, DollarSign } from 'lucide-react'
+import { LayoutDashboard, Receipt, TrendingUp, Users, DollarSign, Package, Clock } from 'lucide-react'
+import Link from 'next/link'
 
 const prisma = new PrismaClient()
-export const dynamic = 'force-dynamic' 
 
-export default async function Dashboard({ searchParams }: { searchParams: Promise<{ from?: string, to?: string }> }) {
-  
-  const params = await searchParams
-  const from = params.from ? new Date(params.from) : undefined
-  const to = params.to ? new Date(params.to) : undefined
-  
-  const stats = await getDashboardStats(from, to)
+export default async function Dashboard() {
+  const session = await verifySession()
+  const stats = await getDashboardStats()
 
   return (
-    <main className="min-h-screen bg-[#f3f4f6] p-8 ml-64 font-sans">
-      
-      {/* HEADER + DATE FILTER */}
-      <div className="flex justify-between items-center mb-10">
-        <div>
-          <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tight">Fahad Traders</h1>
-          <div className="flex items-center gap-2 text-slate-500 text-sm font-bold mt-1">
-            <Calendar size={14} />
-            <span>{from ? from.toLocaleDateString() : 'All Time'} — {to ? to.toLocaleDateString() : 'Present'}</span>
+    <div className="min-h-screen bg-slate-50 lg:ml-64 p-4 pt-20 lg:p-8">
+      <div className="max-w-7xl mx-auto">
+        
+        <div className="flex justify-between items-end mb-8">
+          <div>
+            <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">Fahad Traders</h1>
+            <p className="text-slate-500 font-bold text-sm flex items-center gap-2">
+              <Clock size={14} /> All Time — Present
+            </p>
           </div>
         </div>
-        
-        {/* Simple Date Filter Form */}
-        <form className="flex gap-2 items-center bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-            <input type="date" name="from" className="text-xs font-bold uppercase text-slate-600 outline-none" />
-            <span className="text-slate-300">/</span>
-            <input type="date" name="to" className="text-xs font-bold uppercase text-slate-600 outline-none" />
-            <button type="submit" className="bg-slate-900 text-white p-2 rounded-lg hover:bg-black">
-                <ArrowLeftRight size={14} />
-            </button>
-        </form>
-      </div>
 
-      {/* --- CARDS GRID --- */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
-        
-        {/* REVENUE */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
+        {/* STATS GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
             <div>
-                <h2 className="text-2xl font-black text-slate-800">{stats.netRevenue.toLocaleString()}</h2>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Net Revenue</p>
+              <h2 className="text-2xl font-black text-slate-800">{stats.revenue.toLocaleString()}</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Net Revenue</p>
             </div>
             <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                <DollarSign size={24} />
+              <DollarSign size={24} />
             </div>
-        </div>
+          </div>
 
-        {/* PROFIT MARGIN */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
             <div>
-                <h2 className="text-2xl font-black text-slate-800">{stats.profitMargin}%</h2>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Profit Margin</p>
+              {/* FIXED LINE BELOW: Changed profitMargin to margin */}
+              <h2 className="text-2xl font-black text-slate-800">{stats.margin}%</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Profit Margin</p>
             </div>
             <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-600">
-                <Percent size={24} />
+              <TrendingUp size={24} />
             </div>
-        </div>
+          </div>
 
-        {/* PROFIT */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
             <div>
-                <h2 className="text-2xl font-black text-slate-800">{stats.profit.toLocaleString()}</h2>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Net Profit</p>
+              <h2 className="text-2xl font-black text-slate-800">{stats.profit.toLocaleString()}</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Net Profit</p>
             </div>
             <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
-                <TrendingUp size={24} />
+              <Receipt size={24} />
             </div>
-        </div>
+          </div>
 
-        {/* RECEIVABLES (FIXED: Now White Background + Dark Text) */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between border-l-4 border-l-orange-500">
             <div>
-                <h2 className="text-2xl font-black text-slate-800">{stats.totalReceivable.toLocaleString()}</h2>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Receivables</p>
+              <h2 className="text-2xl font-black text-slate-800">{stats.totalReceivable.toLocaleString()}</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Receivables</p>
             </div>
             <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
-                <ArrowLeftRight size={24} />
+              <Users size={24} />
             </div>
+          </div>
+
         </div>
-      </div>
 
-      <div className="grid grid-cols-4 gap-6 mb-12">
-         {/* SALES COUNT */}
-         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600">
-                <ShoppingCart size={18} />
-             </div>
-             <div>
-                 <h3 className="text-xl font-black text-slate-800">{stats.salesCount}</h3>
-                 <p className="text-[10px] font-bold text-slate-400 uppercase">Sales Count</p>
-             </div>
-         </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-600">
+              <Package size={24} />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-slate-800">{stats.salesCount}</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Sales Count</p>
+            </div>
+          </div>
 
-         {/* CUSTOMER COUNT */}
-         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
-                <Users size={18} />
-             </div>
-             <div>
-                 <h3 className="text-xl font-black text-slate-800">{stats.customerCount}</h3>
-                 <p className="text-[10px] font-bold text-slate-400 uppercase">Customers</p>
-             </div>
-         </div>
-         
-         {/* SYSTEM STATUS */}
-         <div className="col-span-2 bg-slate-200/50 rounded-3xl flex items-center justify-center border border-dashed border-slate-300">
-             <p className="text-xs font-bold text-slate-400 uppercase">System Status: Online</p>
-         </div>
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5">
+            <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-600">
+              <Users size={24} />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-slate-800">{stats.customerCount}</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Customers</p>
+            </div>
+          </div>
+
+          {/* NEW: HOLD COUNT CARD */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5 border-l-4 border-l-orange-400">
+            <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500">
+              <Clock size={24} />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-slate-800">{stats.holdCount}</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Quotations on Hold</p>
+            </div>
+          </div>
+
+        </div>
+
+        {/* QUICK ACTIONS */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 no-print">
+            <Link href="/invoice/new" className="p-8 bg-slate-900 text-white rounded-3xl hover:bg-black transition shadow-xl group">
+                <div className="flex justify-between items-start mb-4">
+                    <Receipt size={32} />
+                    <span className="bg-white/10 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full group-hover:bg-blue-600 transition">Action Required</span>
+                </div>
+                <h3 className="text-xl font-black uppercase tracking-tight">Create Sale Invoice</h3>
+                <p className="text-slate-400 text-sm mt-1">Generate a new bill for a customer</p>
+            </Link>
+            
+            <Link href="/ledger" className="p-8 bg-white text-slate-900 border border-slate-200 rounded-3xl hover:border-slate-400 transition shadow-sm group">
+                <div className="flex justify-between items-start mb-4">
+                    <LayoutDashboard size={32} className="text-slate-400" />
+                </div>
+                <h3 className="text-xl font-black uppercase tracking-tight text-slate-900">View Ledger</h3>
+                <p className="text-slate-500 text-sm mt-1">Detailed financial reports & analysis</p>
+            </Link>
+        </div>
+
+        <div className="mt-10 p-6 rounded-3xl bg-slate-200/50 border-2 border-dashed border-slate-300 text-center">
+             <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">System Status: Online & Secure</p>
+        </div>
+
       </div>
-    </main>
+    </div>
   )
 }
