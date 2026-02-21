@@ -21,15 +21,16 @@ model User {
 
 // 2. Customer Table
 model Customer {
-  id        String    @id @unique
-  name      String
-  category  String?
-  email     String?
-  phone     String?
-  address   String?
-  userId    String
-  user      User      @relation(fields: [userId], references: [id])
-  invoices  Invoice[]
+  id             String    @id @unique
+  name           String
+  category       String?
+  email          String?
+  phone          String?
+  address        String?
+  openingBalance Float     @default(0)
+  userId         String
+  user           User      @relation(fields: [userId], references: [id])
+  invoices       Invoice[]
 }
 
 // 3. Product Table
@@ -37,8 +38,8 @@ model Product {
   id           String        @id @unique
   name         String
   category     String
-  cost         Float         @default(0) // New: Cost Price
-  price        Float         // This is your Selling Price
+  cost         Float         @default(0)
+  price        Float         
   stock        Int           @default(0)
   userId       String
   user         User          @relation(fields: [userId], references: [id])
@@ -47,26 +48,28 @@ model Product {
 
 // 4. Invoices Table
 model Invoice {
-  id          String   @id @unique @default(cuid())
+  id          String        @id @unique @default(cuid())
   totalAmount Float
-  paidAmount  Float    @default(0)  // <--- THIS LINE IS MISSING IN DB
-  isReturn    Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  paidAmount  Float         @default(0) 
+  discountAmount Float         @default(0)   // <--- ADD THIS LINE 
+  isReturn    Boolean       @default(false)
+  isHold         Boolean       @default(false) //
+  createdAt   DateTime      @default(now())
   
   customerId  String
-  customer    Customer @relation(fields: [customerId], references: [id])
+  customer    Customer      @relation(fields: [customerId], references: [id])
   
   userId      String
-  user        User     @relation(fields: [userId], references: [id])
+  user        User          @relation(fields: [userId], references: [id])
   
   items       InvoiceItem[]
 }
 
 // 5. Invoice Items
 model InvoiceItem {
-  id        String  @id @unique @default(cuid()) // <--- Auto-generated ID
+  id        String  @id @unique @default(cuid())
   quantity  Int
-  price     Float   
+  price     Float  
   
   invoiceId String
   invoice   Invoice @relation(fields: [invoiceId], references: [id])
@@ -74,8 +77,8 @@ model InvoiceItem {
   productId String
   product   Product @relation(fields: [productId], references: [id])
 }
-// ... keep all your existing models ...
 
+// 6. Categories
 model ProductCategory {
   id     String @id @unique
   name   String

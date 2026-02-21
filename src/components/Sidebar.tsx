@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Receipt, Undo2, Package, Users, BookOpen, FileText, Tags, UserCog, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Receipt, Undo2, Package, Users, BookOpen, FileText, Tags, UserCog, LogOut, Menu, X, FileClock } from 'lucide-react'
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
@@ -15,7 +15,7 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* MOBILE TOP BAR (Now uses lg:hidden so it never shows on laptops) */}
+      {/* MOBILE TOP BAR */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#1a1a1a] text-white flex items-center justify-between px-4 z-50 border-b border-slate-800">
         <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-white text-xs">FT</div>
@@ -44,6 +44,9 @@ export default function Sidebar() {
           <Link href="/invoice/new" className="flex items-center gap-4 py-3 px-4 rounded-lg bg-slate-800 text-white font-bold shadow-md"><Receipt size={18} /> Sale Invoice</Link>
           <Link href="/invoice/return" className="flex items-center gap-4 py-3 px-4 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition font-bold"><Undo2 size={18} /> Returns</Link>
           <Link href="/invoices" className="flex items-center gap-4 py-3 px-4 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition font-bold"><FileText size={18} /> All Invoices</Link>
+          
+          {/* NEW QUOTATIONS / HOLD LINK */}
+          <Link href="/invoice/hold" className="flex items-center gap-4 py-3 px-4 rounded-lg hover:bg-slate-800 text-orange-400 hover:text-orange-300 transition font-bold"><FileClock size={18} /> Quotations / Hold</Link>
           
           <div className="pt-6 pb-2 px-4 text-[10px] font-black uppercase text-slate-600 tracking-widest">Inventory</div>
           <Link href="/products" className="flex items-center gap-4 py-3 px-4 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition font-bold"><Package size={18} /> Products</Link>
