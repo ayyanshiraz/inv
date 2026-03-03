@@ -7,19 +7,26 @@ import { deleteInvoice, updateVoucher } from '@/actions/actions'
 export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
     const [editingId, setEditingId] = useState<string | null>(null)
     const [editAmount, setEditAmount] = useState<string>('')
+    // NEW: State for editing the date
+    const [editDate, setEditDate] = useState<string>('')
     const [isSaving, setIsSaving] = useState(false)
 
     const handleEditClick = (v: any) => {
         setEditingId(v.id)
         setEditAmount(v.paidAmount.toString())
+        // Captures the current date and formats it for the date picker
+        setEditDate(new Date(v.createdAt).toISOString().split('T')[0])
     }
 
     const handleSave = async (id: string) => {
         const numAmount = Number(editAmount)
         if (numAmount <= 0) return alert("Amount must be greater than 0")
+        if (!editDate) return alert("Please select a valid date")
+        
         setIsSaving(true)
         try {
-            await updateVoucher(id, numAmount)
+            // Passes both the amount and the new date to the backend
+            await updateVoucher(id, numAmount, editDate)
             setEditingId(null)
         } catch (e) {
             alert("Error updating voucher")
@@ -29,7 +36,6 @@ export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
 
     const handleDelete = async (id: string) => {
         if (confirm("Are you sure you want to delete this voucher? This will instantly return the deducted amount back to the customer's balance.")) {
-            // Since a voucher is technically an invoice, deleteInvoice works perfectly here!
             await deleteInvoice(id)
         }
     }
@@ -40,7 +46,7 @@ export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
                 <table className="w-full text-left border-collapse min-w-[700px]">
                     <thead className="bg-slate-100 border-b-2 border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-500">
                         <tr>
-                            <th className="p-4 w-32">Date</th>
+                            <th className="p-4 w-40">Date</th>
                             <th className="p-4 hidden md:table-cell w-32">Voucher ID</th>
                             <th className="p-4">Customer</th>
                             <th className="p-4 text-right w-48">Amount Received</th>
@@ -50,10 +56,25 @@ export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
                     <tbody className="text-sm font-bold text-slate-700 divide-y divide-slate-100">
                         {vouchers.map(v => (
                             <tr key={v.id} className="hover:bg-slate-50 transition">
-                                <td className="p-4 whitespace-nowrap">{new Date(v.createdAt).toLocaleDateString()}</td>
+                                
+                                {/* DATE CELL */}
+                                <td className="p-4 whitespace-nowrap">
+                                    {editingId === v.id ? (
+                                        <input 
+                                            type="date" 
+                                            value={editDate} 
+                                            onChange={(e) => setEditDate(e.target.value)}
+                                            className="w-full p-2 border-2 border-blue-400 rounded-lg bg-white text-slate-900 font-bold outline-none shadow-inner"
+                                        />
+                                    ) : (
+                                        new Date(v.createdAt).toLocaleDateString()
+                                    )}
+                                </td>
+                                
                                 <td className="p-4 font-mono text-xs text-slate-400 hidden md:table-cell">{v.id.slice(-6).toUpperCase()}</td>
                                 <td className="p-4 uppercase text-slate-900">{v.customer.name}</td>
                                 
+                                {/* AMOUNT CELL */}
                                 <td className="p-4 text-right">
                                     {editingId === v.id ? (
                                         <input 
@@ -72,6 +93,7 @@ export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
                                     )}
                                 </td>
                                 
+                                {/* ACTIONS CELL */}
                                 <td className="p-4 text-right">
                                     {editingId === v.id ? (
                                         <div className="flex justify-end gap-2">
@@ -80,7 +102,7 @@ export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
                                         </div>
                                     ) : (
                                         <div className="flex justify-end gap-2">
-                                            <button onClick={() => handleEditClick(v)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition" title="Edit Amount"><Edit size={18} /></button>
+                                            <button onClick={() => handleEditClick(v)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition" title="Edit Voucher"><Edit size={18} /></button>
                                             <button onClick={() => handleDelete(v.id)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition" title="Delete Voucher"><Trash2 size={18} /></button>
                                         </div>
                                     )}

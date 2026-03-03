@@ -13,7 +13,8 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
   const [showCustDropdown, setShowCustDropdown] = useState(false)
   const [prevBalance, setPrevBalance] = useState(0)
 
-  // INJECTED `unit` INTO INITIAL ROWS
+  const [invoiceDate, setInvoiceDate] = useState(initialData?.createdAt ? new Date(initialData.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0])
+
   const [rows, setRows] = useState([{ id: Date.now().toString(), productId: '', search: '', price: '', quantity: 1, total: 0, unit: '' }])
   const [activeRowDrop, setActiveRowDrop] = useState<number | null>(null)
   
@@ -43,6 +44,7 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
 
     const data = { 
         customerId: selectedCustomer.id, 
+        invoiceDate: invoiceDate,
         totalAmount: currentTotal, 
         discountAmount: numericDiscount, 
         paidAmount: numericPaid, 
@@ -117,7 +119,6 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
 
   const handleInputEnter = (e: React.KeyboardEvent, nextFieldId: string) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById(nextFieldId)?.focus() } }
   
-  // FIX: Typescript safe focus by ID
   const handlePriceEnter = (e: React.KeyboardEvent, index: number) => { 
       if (e.key === 'Enter') { 
           e.preventDefault(); 
@@ -137,7 +138,7 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
     newRows[index].productId = prod.id; 
     newRows[index].search = prod.name; 
     newRows[index].price = prod.price ? prod.price.toString() : '';
-    newRows[index].unit = prod.unit || 'Bags'; // CAPTURE UNIT
+    newRows[index].unit = prod.unit || 'Bags'; 
     newRows[index].total = (Number(newRows[index].price) || 0) * (Number(newRows[index].quantity) || 0)
     setRows(newRows); setActiveRowDrop(null); document.getElementById(`qty-${index}`)?.focus()
   }
@@ -155,8 +156,11 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
     <div className="bg-white p-4 md:p-8 rounded-2xl shadow-xl border border-slate-200 relative">
       {(showCustDropdown || activeRowDrop !== null) && <div className="fixed inset-0 z-30" onClick={() => { setShowCustDropdown(false); setActiveRowDrop(null); }} />}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 mb-8 relative z-40">
-        <div className="relative">
+      {/* NEW ROBUST LAYOUT: Flexbox prevents squishing on iPads/Laptops */}
+      <div className="flex flex-col lg:flex-row gap-4 mb-8 relative z-40">
+        
+        {/* CUSTOMER SEARCH */}
+        <div className="relative w-full lg:w-1/2">
             <label className="text-xs font-black uppercase text-slate-800 mb-2 block">Search Customer</label>
             <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -172,9 +176,22 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
                 </div>
             )}
         </div>
-        <div className="bg-slate-50 p-4 rounded-xl flex flex-col justify-center text-left md:text-right border-2 border-slate-200 mt-4 md:mt-0">
-            <span className="text-xs font-black uppercase text-slate-500">Previous Balance</span><span className={`text-3xl font-black ${prevBalance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>PKR {prevBalance.toLocaleString()}</span>
+
+        {/* DATE & BALANCE WRAPPER */}
+        <div className="flex flex-col md:flex-row w-full lg:w-1/2 gap-4">
+            {/* DATE PICKER */}
+            <div className="w-full md:w-1/2">
+                <label className="text-xs font-black uppercase text-slate-800 mb-2 block">Invoice Date</label>
+                <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className="w-full p-3 bg-white border-2 border-slate-300 rounded-xl font-black text-slate-900 outline-none focus:border-blue-600 transition cursor-pointer" />
+            </div>
+
+            {/* BALANCE BOX */}
+            <div className="w-full md:w-1/2 bg-slate-50 p-3 rounded-xl flex flex-col justify-center items-center md:items-end border-2 border-slate-200 mt-4 md:mt-0">
+                <span className="text-[10px] font-black uppercase text-slate-500 mb-1">Previous Balance</span>
+                <span className={`text-2xl font-black leading-none ${prevBalance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>PKR {prevBalance.toLocaleString()}</span>
+            </div>
         </div>
+
       </div>
 
       <div className="space-y-4 relative z-30">
@@ -187,7 +204,6 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
             <div className="w-full md:col-span-6 relative">
               <label className="md:hidden text-[10px] font-black uppercase text-slate-500 mb-1 block">Product</label>
               
-              {/* BEAUTIFUL NEW UNIT BADGE INSIDE PRODUCT BOX */}
               <div className="relative">
                   <input id={`search-${i}`} type="text" placeholder="Search..." value={row.search} className="w-full p-3 md:p-2 pr-16 bg-white border border-slate-300 rounded-lg font-black text-slate-900 outline-none focus:border-blue-500 uppercase" onChange={(e) => { updateRowDetails(i, 'search', e.target.value); updateRowDetails(i, 'productId', ''); setActiveRowDrop(i); setProdHoverIndex(0) }} onFocus={(e) => { setActiveRowDrop(i); e.target.select() }} onKeyDown={(e) => handleProdKeyDown(e, i)} />
                   {row.unit && row.productId && (
@@ -202,7 +218,6 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
                       {filteredProducts(i).map((p, idx) => (
                           <div key={p.id} onClick={() => handleSelectProduct(i, p)} onMouseEnter={() => setProdHoverIndex(idx)} className={`p-3 md:p-2 cursor-pointer rounded text-slate-900 flex justify-between items-center ${prodHoverIndex === idx ? 'bg-blue-100' : 'hover:bg-slate-100'}`}>
                               <p className="font-black text-sm uppercase">{p.name}</p>
-                              {/* UNIT SHOWN IN DROPDOWN */}
                               <span className="text-[10px] font-bold text-slate-400 bg-slate-200 px-2 rounded uppercase">{p.unit || 'Bags'}</span>
                           </div>
                       ))}
@@ -213,7 +228,6 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
             <div className="flex gap-4 w-full md:contents">
                 <div className="flex-1 md:col-span-2">
                   <label className="md:hidden text-[10px] font-black uppercase text-slate-500 mb-1 block">Qty</label>
-                  {/* CLEAN QTY BOX (No Watermark) */}
                   <input id={`qty-${i}`} type="number" className="w-full p-3 md:p-2 bg-white border border-slate-300 rounded-lg text-center font-black text-slate-900 outline-none focus:border-blue-500" value={row.quantity} onChange={(e) => updateRowDetails(i, 'quantity', e.target.value)} onFocus={(e) => e.target.select()} onKeyDown={(e) => handleInputEnter(e, `price-${i}`)} />
                 </div>
                 <div className="flex-1 md:col-span-2">
@@ -269,9 +283,10 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
             </div>
         )}
 
-        <div className="flex justify-between items-end border-t-2 border-slate-900 pt-4">
+        {/* LAYOUT FIX FOR REMAINING BALANCE: Stays aligned perfectly */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-t-2 border-slate-900 pt-4 mt-2 gap-2">
             <span className="text-sm font-black uppercase text-slate-600">Remaining Balance:</span> 
-            <span className="text-3xl md:text-4xl font-black text-slate-900">PKR {remainingBalance.toLocaleString()}</span>
+            <span className="text-3xl md:text-4xl font-black text-slate-900 leading-none">PKR {remainingBalance.toLocaleString()}</span>
         </div>
       </div>
 

@@ -2,12 +2,9 @@ import { PrismaClient } from '@prisma/client'
 import PrintPageButton from '@/components/PrintPageButton'
 
 const prisma = new PrismaClient()
-
-// Forces Next.js to skip static simulation during deployment
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-// AGGRESSIVE USER CHECK
 function getUserDisplayDetails(user: any) {
     const userStr = JSON.stringify(user || {}).toLowerCase();
     
@@ -21,7 +18,6 @@ function getUserDisplayDetails(user: any) {
 }
 
 export default async function BulkPrintPage({ searchParams }: { searchParams: Promise<any> | any }) {
-  // BUILD-SAFE PARAMETER PARSING
   const params = (await searchParams) || {}
   let ids: string[] = []
   
@@ -31,7 +27,6 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
       ids = params.ids
   }
 
-  // Safely stop if simulation has no IDs
   if (!ids || ids.length === 0) return <div className="p-10 text-center font-bold">No invoices selected for printing.</div>
 
   const { verifySession } = await import('@/lib/session')
@@ -72,7 +67,9 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
         
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
-          .urdu-text { font-family: 'Noto Nastaliq Urdu', serif; line-height: 1.5; }
+          
+          /* FIX: Forced bold weight and better line-height for Urdu readability */
+          .urdu-text { font-family: 'Noto Nastaliq Urdu', serif; line-height: 1.8; font-weight: 700 !important; }
           
           @media print {
               @page { size: A5 portrait; margin: 10mm; }
@@ -126,12 +123,13 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
                     <div key={invoice.id} className="invoice-page bg-white w-[148mm] min-h-[195mm] mx-auto p-[10mm] shadow-2xl relative text-black box-border flex flex-col mb-8 print:mb-0 print:p-0">
                         
                         <div className="flex justify-between items-center mb-4">
+                            {/* LOGO FIX */}
                             <div className="w-16 h-16 overflow-hidden flex items-center justify-center shrink-0 bg-white">
-                                <img src="/logo.jpeg" alt="Logo" className="w-full h-full object-contain mix-blend-multiply" />
+                                <img src="/logo.jpeg" alt="Logo" className="w-[135%] h-[135%] max-w-none object-cover object-center" />
                             </div>
 
                             <div className="text-center flex-1 px-2">
-                                <p className="text-[10px] urdu-text font-bold mb-0">کاروبار حلال - سود حرام</p>
+                                <p className="text-[12px] urdu-text mb-0">کاروبار حلال - سود حرام</p>
                                 <h1 className="text-2xl font-black uppercase tracking-tighter text-black leading-none mt-1">Fahad Traders</h1>
                                 <p className="font-bold text-[9px] mt-1 text-black uppercase tracking-widest">{repDetails.name} <span className="ml-1">{repDetails.phone}</span></p>
                             </div>
@@ -139,14 +137,14 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
                             <div className="text-right text-[10px] font-bold text-black min-w-[100px]">
                                 <p className="mb-0.5 text-xs font-black">Inv# {invoice.id.slice(-6).toUpperCase()}</p>
                                 <p>Date: {new Date(invoice.createdAt).toLocaleDateString()}</p>
-                                <p className="urdu-text mt-0 text-[8px]">تاریخ</p>
+                                <p className="urdu-text mt-0 text-[11px]">تاریخ</p>
                             </div>
                         </div>
 
                         <div className="w-[65%] border-[1.5px] border-black mb-4 flex flex-col">
                             <div className="bg-gray-200 border-b-[1.5px] border-black px-2 py-0.5 font-black text-[10px] flex justify-between items-center">
                                 <span>Bill To:</span>
-                                <span className="urdu-text">خریدار:</span>
+                                <span className="urdu-text text-[13px]">خریدار:</span>
                             </div>
                             <div className="p-2 bg-white">
                                 <h2 className="font-black text-sm uppercase text-black leading-tight">{invoice.customer?.name || 'Unknown'}</h2>
@@ -164,19 +162,19 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
                         <table className="bold-border mb-3 w-full">
                             <thead>
                                 <tr>
-                                    <th className="w-8 text-center border-b-[1.5px] border-black"><span className="block text-[11px]">Sr.</span><span className="urdu-text text-[9px] font-normal block mt-0.5">نمبر</span></th>
-                                    <th className="text-left border-b-[1.5px] border-black"><span className="block text-[11px]">Description</span><span className="urdu-text text-[9px] font-normal block mt-0.5">تفصیل</span></th>
-                                    <th className="w-12 text-center border-b-[1.5px] border-black"><span className="block text-[11px]">Qty</span><span className="urdu-text text-[9px] font-normal block mt-0.5">مقدار</span></th>
-                                    <th className="w-12 text-center border-b-[1.5px] border-black"><span className="block text-[11px]">Unit</span><span className="urdu-text text-[9px] font-normal block mt-0.5">یونٹ</span></th>
-                                    <th className="w-16 text-right border-b-[1.5px] border-black"><span className="block text-[11px]">Price</span><span className="urdu-text text-[9px] font-normal block mt-0.5">قیمت</span></th>
-                                    <th className="w-20 text-right border-b-[1.5px] border-black"><span className="block text-[11px]">Amount</span><span className="urdu-text text-[9px] font-normal block mt-0.5">رقم</span></th>
+                                    <th className="w-8 text-center border-b-[1.5px] border-black"><span className="block text-[11px]">Sr.</span><span className="urdu-text text-[12px] block mt-0.5">نمبر</span></th>
+                                    <th className="text-left border-b-[1.5px] border-black"><span className="block text-[11px]">Description</span><span className="urdu-text text-[12px] block mt-0.5">تفصیل</span></th>
+                                    <th className="w-12 text-center border-b-[1.5px] border-black"><span className="block text-[11px]">Qty</span><span className="urdu-text text-[12px] block mt-0.5">مقدار</span></th>
+                                    <th className="w-12 text-center border-b-[1.5px] border-black"><span className="block text-[11px]">Unit</span><span className="urdu-text text-[12px] block mt-0.5">یونٹ</span></th>
+                                    <th className="w-16 text-right border-b-[1.5px] border-black"><span className="block text-[11px]">Price</span><span className="urdu-text text-[12px] block mt-0.5">قیمت</span></th>
+                                    <th className="w-20 text-right border-b-[1.5px] border-black"><span className="block text-[11px]">Amount</span><span className="urdu-text text-[12px] block mt-0.5">رقم</span></th>
                                 </tr>
                             </thead>
                             <tbody className="font-bold text-black uppercase">
                                 {safeItems.map((item: any, i: number) => (
                                     <tr key={i}>
                                         <td className="text-center align-middle py-2.5 text-sm">{i + 1}</td>
-                                        <td className="text-left py-2.5 text-sm md:text-[15px] font-black leading-tight UrduFontReadability">
+                                        <td className="text-left py-2.5 text-[15px] md:text-[17px] font-black leading-relaxed" style={{ fontFamily: "'Noto Nastaliq Urdu', sans-serif" }}>
                                             {item.product?.name || 'Item'}
                                         </td>
                                         <td className="text-center align-middle py-2.5 text-base font-black">{item.quantity}</td>
@@ -194,20 +192,20 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
                         <div className="flex justify-end mb-2 flex-grow">
                             <table className="w-[190px] bold-border h-fit">
                                 <tbody className="text-[11px]">
-                                    <tr><td className="bg-gray-200 font-black w-24 border-b border-black py-1.5 px-2 flex justify-between items-center"><span>Subtotal:</span><span className="urdu-text text-[9px] ml-1">میزان</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">{subtotal.toLocaleString()}</td></tr>
+                                    <tr><td className="bg-gray-200 font-black w-24 border-b border-black py-1.5 px-2 flex justify-between items-center"><span>Subtotal:</span><span className="urdu-text text-[12px] ml-1">میزان</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">{subtotal.toLocaleString()}</td></tr>
                                     {invoice.discountAmount > 0 && (
-                                        <tr><td className="bg-gray-200 font-black border-b border-black py-1.5 px-2 flex justify-between items-center"><span>Discount:</span><span className="urdu-text text-[9px] ml-1">رعایت</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">- {(invoice.discountAmount || 0).toLocaleString()}</td></tr>
+                                        <tr><td className="bg-gray-200 font-black border-b border-black py-1.5 px-2 flex justify-between items-center"><span>Discount:</span><span className="urdu-text text-[12px] ml-1">رعایت</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">- {(invoice.discountAmount || 0).toLocaleString()}</td></tr>
                                     )}
-                                    <tr><td className="bg-gray-200 font-black border-b border-black py-1.5 px-2 flex justify-between items-center"><span>Prev. Bal:</span><span className="urdu-text text-[9px] ml-1">سابقہ بقایا</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">{(invoice.prevBalance || 0).toLocaleString()}</td></tr>
-                                    <tr><td className="bg-gray-200 font-black border-b border-black py-1.5 px-2 flex justify-between items-center"><span>Total:</span><span className="urdu-text text-[9px] ml-1">کل رقم</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2 text-sm">{ ((invoice.prevBalance || 0) + (invoice.isReturn ? -netTotal : netTotal)).toLocaleString() }</td></tr>
-                                    <tr><td className="bg-gray-200 font-black border-b border-black py-1.5 px-2 flex justify-between items-center"><span>Payment:</span><span className="urdu-text text-[9px] ml-1">وصول شدہ</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">{payment.toLocaleString()}</td></tr>
-                                    <tr><td className="bg-gray-200 font-black py-1.5 px-2 flex justify-between items-center"><span>Balance:</span><span className="urdu-text text-[9px] ml-1">موجودہ بقایا</span></td><td className="text-right font-black border-l-[1.5px] px-2 text-sm">{closingBalance.toLocaleString()}</td></tr>
+                                    <tr><td className="bg-gray-200 font-black border-b border-black py-1.5 px-2 flex justify-between items-center"><span>Prev. Bal:</span><span className="urdu-text text-[12px] ml-1">سابقہ بقایا</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">{(invoice.prevBalance || 0).toLocaleString()}</td></tr>
+                                    <tr><td className="bg-gray-200 font-black border-b border-black py-1.5 px-2 flex justify-between items-center"><span>Total:</span><span className="urdu-text text-[12px] ml-1">کل رقم</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2 text-sm">{ ((invoice.prevBalance || 0) + (invoice.isReturn ? -netTotal : netTotal)).toLocaleString() }</td></tr>
+                                    <tr><td className="bg-gray-200 font-black border-b border-black py-1.5 px-2 flex justify-between items-center"><span>Payment:</span><span className="urdu-text text-[12px] ml-1">وصول شدہ</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">{payment.toLocaleString()}</td></tr>
+                                    <tr><td className="bg-gray-200 font-black py-1.5 px-2 flex justify-between items-center"><span>Balance:</span><span className="urdu-text text-[12px] ml-1">موجودہ بقایا</span></td><td className="text-right font-black border-l-[1.5px] px-2 text-sm">{closingBalance.toLocaleString()}</td></tr>
                                 </tbody>
                             </table>
                         </div>
 
                         <div className="w-full flex flex-col items-center justify-center opacity-90 pt-4 mt-auto bg-white border-none">
-                            <h3 className="urdu-text text-xl font-black text-black z-10 text-center mb-0 leading-none">سیلز مین سے لین دین کے لئے رابطہ کریں</h3>
+                            <h3 className="urdu-text text-2xl font-black text-black z-10 text-center mb-0 leading-none">سیلز مین سے لین دین کے لئے رابطہ کریں</h3>
                             <p className="font-black text-sm tracking-widest text-black z-10 mt-1">{repDetails.phone}</p>
                         </div>
                     </div>

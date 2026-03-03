@@ -2,244 +2,171 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { processSmartReturn, getCustomerInvoices } from '@/actions/actions'
-import { Search, RefreshCcw, User, Calendar, ArrowLeft } from 'lucide-react'
+import { Plus, Trash2, CornerDownLeft } from 'lucide-react'
+import { processSmartReturn } from '@/actions/actions'
 
-export default function ReturnClient({ customers }: { customers: any[] }) {
+// ADDED SAFEGUARDS: customers = [], products = []
+export default function ReturnClient({ customers = [], products = [] }: { customers?: any[], products?: any[] }) {
   const router = useRouter()
+  
+  const [selectedCustomerId, setSelectedCustomerId] = useState('')
+  const [returnDate, setReturnDate] = useState(new Date().toISOString().split('T')[0])
+  
+  const [items, setItems] = useState<any[]>([{ id: Date.now(), productId: '', search: '', unit: 'Bags', quantity: 1, price: 0 }])
+  const [activeItemDrop, setActiveItemDrop] = useState<number | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
 
-  // CUSTOMER SEARCH STATE
-  const [custSearch, setCustSearch] = useState('')
-  const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
-  const [showCustDropdown, setShowCustDropdown] = useState(false)
-  const [custHoverIndex, setCustHoverIndex] = useState(0)
+  // SAFE FILTER: Will not crash if search is empty
+  const filteredItems = (index: number) => {
+      const query = items[index]?.search?.toLowerCase() || '';
+      return products.filter(p => p.name.toLowerCase().includes(query) || p.id.toLowerCase().includes(query));
+  }
 
-  // INVOICE STATE
-  const [customerInvoices, setCustomerInvoices] = useState<any[]>([])
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
-  const [returnQtys, setReturnQtys] = useState<{[key: string]: number}>({})
-  const [loading, setLoading] = useState(false)
+  const updateItem = (index: number, field: string, value: any) => {
+    const newItems = [...items]
+    newItems[index][field] = value
+    setItems(newItems)
+  }
 
-  const filteredCustomers = customers.filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase()) || c.id.includes(custSearch))
+  const handleSelectItem = (index: number, p: any) => {
+    const newItems = [...items]
+    newItems[index].productId = p.id
+    newItems[index].search = p.name
+    newItems[index].unit = p.unit || 'Bags'
+    newItems[index].price = p.price || 0
+    setItems(newItems)
+    setActiveItemDrop(null)
+    document.getElementById(`return-quantity-${index}`)?.focus()
+  }
 
-  // --- KEYBOARD NAVIGATION ---
-  const handleCustKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
-        e.preventDefault(); setCustHoverIndex(prev => Math.min(prev + 1, filteredCustomers.length - 1))
-    } else if (e.key === 'ArrowUp') {
-        e.preventDefault(); setCustHoverIndex(prev => Math.max(prev - 1, 0))
-    } else if (e.key === 'Enter') {
-        e.preventDefault()
-        if (showCustDropdown && filteredCustomers.length > 0) {
-            handleSelectCustomer(filteredCustomers[custHoverIndex])
-        }
+  const totalReturnAmount = items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.price)), 0)
+
+  const addItem = () => {
+    setItems([...items, { id: Date.now(), productId: '', search: '', unit: 'Bags', quantity: 1, price: 0 }])
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const validItems = items.filter(i => i.productId && Number(i.quantity) > 0)
+    if (!selectedCustomerId || validItems.length === 0) return alert("Please select a customer and add valid items to return.")
+    
+    setIsSaving(true)
+    
+    try {
+      await processSmartReturn('manual', validItems, totalReturnAmount, selectedCustomerId, returnDate) 
+      alert("Return Processed Successfully! The customer's balance has been credited.")
+      router.push('/invoices') 
+    } catch (err) { 
+        alert("Failed to process return."); 
+        setIsSaving(false) 
     }
   }
 
-  // --- SELECT CUSTOMER & FETCH INVOICES ---
-  const handleSelectCustomer = async (cust: any) => {
-    setSelectedCustomer(cust)
-    setCustSearch(cust.name)
-    setShowCustDropdown(false)
-    setLoading(true)
-    
-    // Fetch their history
-    const invoices = await getCustomerInvoices(cust.id)
-    setCustomerInvoices(invoices)
-    setLoading(false)
-  }
-
-  // --- SELECT INVOICE TO RETURN ---
-  const selectInvoice = (inv: any) => {
-    setSelectedInvoice(inv)
-    setReturnQtys({}) // Reset quantities
-  }
-
-  const handleQtyChange = (itemId: string, max: number, val: string) => {
-    const qty = Math.min(Math.max(0, Number(val)), max)
-    setReturnQtys({ ...returnQtys, [itemId]: qty })
-  }
-
-  const calculateTotalRefund = () => {
-    if (!selectedInvoice) return 0
-    return selectedInvoice.items.reduce((sum: number, item: any) => {
-      const qty = returnQtys[item.id] || 0
-      return sum + (qty * item.price)
-    }, 0)
-  }
-
-  const handleSubmit = async () => {
-    if (!selectedInvoice) return
-    const refundTotal = calculateTotalRefund()
-    if (refundTotal <= 0) return alert("Please specify a quantity to return.")
-
-    const itemsToReturn = selectedInvoice.items
-      .map((item: any) => ({
-        productId: item.productId,
-        quantity: returnQtys[item.id] || 0,
-        price: item.price
-      }))
-      .filter((i: any) => i.quantity > 0)
-
-    await processSmartReturn(selectedInvoice.id, itemsToReturn, refundTotal, selectedInvoice.customerId)
-    alert("Return Processed Successfully!")
-    router.push('/invoices')
-  }
-
   return (
-    <div className="max-w-4xl mx-auto relative">
+    <div className="bg-white p-6 md:p-8 rounded-3xl shadow-lg border border-slate-200 relative w-full mb-20">
+      {activeItemDrop !== null && <div className="fixed inset-0 z-10" onClick={() => setActiveItemDrop(null)} />}
       
-      {showCustDropdown && (
-          <div className="fixed inset-0 z-30" onClick={() => setShowCustDropdown(false)} />
-      )}
-
-      {/* STEP 1 & 2: SEARCH CUSTOMER & SELECT INVOICE */}
-      {!selectedInvoice && (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+      <form onSubmit={handleSubmit} className="space-y-6 w-full relative z-20">
+        
+        {/* CUSTOMER & DATE SECTION */}
+        <div className="w-full flex flex-col md:flex-row gap-4 mb-6">
+            <div className="flex-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2 px-1">Returning Customer:</label>
+                <select value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)} required 
+                    className="w-full p-4 bg-slate-100 border-2 border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:border-red-500 uppercase transition">
+                    <option value="">Select a Customer...</option>
+                    {customers.map(c => <option key={c.id} value={c.id}>{c.name} - ID: {c.id.slice(-6)}</option>)}
+                </select>
+            </div>
             
-            {/* CUSTOMER SEARCH */}
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 relative z-40">
-                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">1. Search Customer</h3>
-                <div className="relative">
-                    <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
-                        type="text" 
-                        value={custSearch}
-                        placeholder="Type customer name or ID..."
-                        className="w-full pl-12 p-4 bg-slate-50 border-2 border-slate-200 rounded-xl font-black text-slate-900 outline-none focus:border-blue-600 transition placeholder:text-slate-400"
-                        onChange={(e) => {
-                            setCustSearch(e.target.value)
-                            setShowCustDropdown(true)
-                            setSelectedCustomer(null)
-                            setCustomerInvoices([])
-                            setCustHoverIndex(0)
-                        }}
-                        onFocus={() => setShowCustDropdown(true)}
-                        onKeyDown={handleCustKeyDown}
-                    />
-                </div>
-                {showCustDropdown && (
-                    <div className="absolute top-full left-8 right-8 mt-2 bg-white border-2 border-slate-200 shadow-2xl rounded-xl max-h-60 overflow-y-auto z-50 p-2">
-                        {filteredCustomers.map((c, idx) => (
-                            <div key={c.id} 
-                                 onClick={() => handleSelectCustomer(c)} 
-                                 onMouseEnter={() => setCustHoverIndex(idx)}
-                                 className={`p-4 rounded-lg cursor-pointer text-slate-900 border-b border-slate-100 last:border-0 ${custHoverIndex === idx ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
-                                <p className="font-black uppercase">{c.name}</p>
-                                <p className="text-xs text-slate-500 font-bold">{c.phone} | ID: {c.id.slice(-4)}</p>
+            <div className="w-full md:w-48">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2 px-1">Return Date:</label>
+                <input type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} 
+                    className="w-full p-4 bg-slate-100 border-2 border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:border-red-500 uppercase transition cursor-pointer" />
+            </div>
+        </div>
+
+        {/* ITEMS SECTION */}
+        <div className="space-y-4 w-full">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2 px-1">Returned Items:</label>
+          <div className="hidden md:grid grid-cols-12 gap-4 px-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+              <div className="col-span-1 text-center">Sr.</div>
+              <div className="col-span-5">Product Description</div>
+              <div className="col-span-1 text-center">Unit</div>
+              <div className="col-span-2 text-right">Return Qty</div>
+              <div className="col-span-1 text-right">Price</div>
+              <div className="col-span-2 text-right pr-12">Credit Value</div>
+          </div>
+
+          {items.map((item, i) => (
+            <div key={item.id} className="flex flex-col md:grid md:grid-cols-12 gap-4 items-center bg-red-50/30 p-4 rounded-xl border border-red-100 relative w-full">
+              <div className="hidden md:block col-span-1 text-center font-black text-slate-400">{i + 1}</div>
+              
+              <div className="col-span-5 relative w-full">
+                <input type="text" placeholder="Search product..." value={item.search} 
+                  onChange={(e) => { updateItem(i, 'search', e.target.value); updateItem(i, 'productId', ''); updateItem(i, 'price', 0); setActiveItemDrop(i); }} 
+                  onFocus={() => { setActiveItemDrop(i); item.quantity = ''; }} 
+                  className="w-full p-3 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:border-red-500 uppercase transition-all" 
+                />
+                {activeItemDrop === i && (
+                    <div className="absolute left-0 top-full mt-1 w-full z-30 bg-white border border-slate-300 shadow-2xl rounded-lg max-h-48 overflow-y-auto p-1">
+                        {filteredItems(i).map((p: any) => (
+                            <div key={p.id} onClick={() => handleSelectItem(i, p)} className="p-3 cursor-pointer rounded text-slate-900 hover:bg-slate-100 flex justify-between items-center border-b border-slate-50">
+                                <span className="font-black text-xs uppercase">{p.name} - ID: {p.id.slice(-6)}</span>
+                                <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{p.unit || 'Bags'}</span>
                             </div>
                         ))}
-                        {filteredCustomers.length === 0 && <div className="p-4 text-slate-500 font-bold">No customers found.</div>}
                     </div>
                 )}
-            </div>
+              </div>
 
-            {/* INVOICE LIST */}
-            {selectedCustomer && (
-                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden animate-in fade-in">
-                    <div className="p-6 bg-slate-900 flex justify-between items-center text-white">
-                        <h3 className="text-sm font-black uppercase tracking-widest opacity-80">2. Select Invoice to Return</h3>
-                        {loading && <span className="text-xs font-bold animate-pulse text-blue-300">Loading History...</span>}
-                    </div>
-                    
-                    <div className="divide-y divide-slate-100">
-                        {customerInvoices.map((inv) => (
-                            <div key={inv.id} onClick={() => selectInvoice(inv)} className="flex justify-between items-center p-6 hover:bg-blue-50 cursor-pointer transition">
-                                <div>
-                                    <h4 className="font-mono font-black text-slate-800 text-lg">{inv.id.slice(-6).toUpperCase()}</h4>
-                                    <p className="text-xs text-slate-500 font-bold flex gap-2 items-center mt-1">
-                                        <Calendar size={12}/> {new Date(inv.createdAt).toLocaleDateString()} 
-                                        <span className="text-slate-300">|</span> 
-                                        {inv.items.length} Items
-                                    </p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-xl font-black text-slate-900">PKR {inv.totalAmount.toLocaleString()}</p>
-                                    <p className="text-[10px] font-black uppercase text-blue-600">Click to Return</p>
-                                </div>
-                            </div>
-                        ))}
-                        {customerInvoices.length === 0 && !loading && (
-                            <div className="p-10 text-center text-slate-400 font-bold">This customer has no invoices.</div>
-                        )}
-                    </div>
+              <div className="col-span-1 w-full">
+                  <input type="text" value={item.unit} readOnly placeholder="Bags" className="w-full p-3 bg-slate-100 border border-slate-300 rounded-lg text-center font-black text-slate-500 uppercase" />
+              </div>
+
+              <div className="col-span-2 w-full">
+                <input id={`return-quantity-${i}`} type="number" placeholder="0" value={item.quantity} onChange={(e) => updateItem(i, 'quantity', e.target.value)} 
+                  className="w-full p-3 bg-white border border-slate-300 rounded-lg text-right font-black text-slate-900 outline-none focus:border-red-500 transition-all" 
+                />
+              </div>
+
+              <div className="col-span-1 w-full">
+                <input type="number" placeholder="0" value={item.price} onChange={(e) => updateItem(i, 'price', e.target.value)} 
+                  className="w-full p-3 bg-white border border-slate-300 rounded-lg text-right font-bold text-slate-900 outline-none focus:border-red-500 transition-all" 
+                />
+              </div>
+
+              <div className="col-span-2 flex items-center gap-2 justify-end w-full">
+                <div className="w-full p-3 bg-red-100 border border-transparent rounded-lg text-right font-black text-red-700 truncate">
+                    PKR {(Number(item.quantity) * Number(item.price)).toLocaleString()}
                 </div>
-            )}
+                {items.length > 1 && (
+                    <button type="button" onClick={() => setItems(items.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600 p-2 rounded bg-white border border-red-200"><Trash2 size={16} /></button>
+                )}
+              </div>
+            </div>
+          ))}
+          <button type="button" onClick={addItem} className="flex items-center gap-2 text-red-600 font-black uppercase tracking-widest text-xs hover:text-red-800 transition p-2">
+            <Plus size={16} /> Add Return Row
+          </button>
         </div>
-      )}
 
-      {/* STEP 3: RETURN DETAILS */}
-      {selectedInvoice && (
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-            <div className="bg-slate-900 p-6 flex justify-between items-center text-white">
-                <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Processing Return</p>
-                    <h2 className="text-2xl font-black uppercase flex items-center gap-2 mt-1">
-                        <User size={20}/> {selectedCustomer.name}
-                    </h2>
-                </div>
-                <button onClick={() => setSelectedInvoice(null)} className="flex items-center gap-2 text-xs font-bold bg-white/10 px-4 py-2 rounded-lg hover:bg-white/20 transition">
-                    <ArrowLeft size={14}/> Back to Invoices
-                </button>
-            </div>
-
-            <div className="p-8">
-                <table className="w-full text-left mb-8">
-                    <thead>
-                        <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b-2 border-slate-100">
-                            <th className="pb-4">Product Name</th>
-                            <th className="pb-4 text-center">Orig. Qty</th>
-                            <th className="pb-4 text-right">Sold Price</th>
-                            <th className="pb-4 text-center w-32">Return Qty</th>
-                            <th className="pb-4 text-right">Refund Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody className="text-sm font-bold text-slate-900 divide-y divide-slate-50">
-                        {selectedInvoice.items.map((item: any) => (
-                            <tr key={item.id} className="hover:bg-slate-50 transition">
-                                <td className="py-4 uppercase">{item.product.name}</td>
-                                <td className="py-4 text-center text-slate-400 font-black">{item.quantity}</td>
-                                <td className="py-4 text-right">PKR {item.price.toLocaleString()}</td>
-                                <td className="py-4 px-2">
-                                    <input 
-                                        type="number" 
-                                        className="w-full p-3 border-2 border-slate-200 rounded-lg text-center focus:border-red-500 outline-none font-black text-slate-900 placeholder:text-slate-300"
-                                        min="0"
-                                        max={item.quantity}
-                                        value={returnQtys[item.id] || ''}
-                                        placeholder="0"
-                                        onChange={(e) => handleQtyChange(item.id, item.quantity, e.target.value)}
-                                    />
-                                </td>
-                                <td className="py-4 text-right font-black text-red-600 text-lg">
-                                    {((returnQtys[item.id] || 0) * item.price).toLocaleString()}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-
-                <div className="flex justify-between items-center bg-slate-50 p-6 rounded-xl border border-slate-200 mt-8">
-                    <div className="text-slate-500 font-bold text-sm">
-                        Original Invoice Total: <span className="text-slate-900">PKR {selectedInvoice.totalAmount.toLocaleString()}</span>
-                    </div>
-                    <div className="text-right flex items-center gap-6">
-                        <div>
-                            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Total Refund</p>
-                            <p className="text-4xl font-black text-red-600">PKR {calculateTotalRefund().toLocaleString()}</p>
-                        </div>
-                        <button 
-                            onClick={handleSubmit} 
-                            className="bg-red-600 text-white px-8 py-4 rounded-xl font-black uppercase tracking-widest shadow-lg shadow-red-200 hover:bg-red-700 transition flex items-center gap-3"
-                            style={{ color: 'white' }}
-                        >
-                            <RefreshCcw size={20} /> Process Return
-                        </button>
-                    </div>
-                </div>
+        {/* RETURN SUMMARY */}
+        <div className="flex justify-end pt-6 border-t border-slate-100 mt-10 w-full">
+            <div className="w-full md:w-80 space-y-3 bg-red-50 p-5 rounded-2xl border border-red-200">
+                <div className="flex justify-between items-center text-sm font-bold text-red-900"><span className="uppercase tracking-widest text-xs">Total Credit Value:</span></div>
+                <div className="flex justify-between items-center text-3xl font-black text-red-600 pt-2"><span>PKR {totalReturnAmount.toLocaleString()}</span></div>
+                <p className="text-[10px] font-bold text-red-400 leading-tight pt-2">This amount will be credited (subtracted) from the customer's total pending balance.</p>
             </div>
         </div>
-      )}
+
+        {/* SUBMIT ACTIONS */}
+        <div className="flex justify-end items-center mt-12 w-full bg-white fixed bottom-0 left-0 right-0 p-4 border-t border-slate-200 lg:pl-72 z-40">
+            <button type="submit" disabled={isSaving || totalReturnAmount === 0} className="w-full md:w-auto px-10 py-3 bg-red-600 text-white flex items-center justify-center gap-3 rounded-xl font-black uppercase tracking-widest text-sm hover:bg-red-700 transition shadow-lg disabled:opacity-50">
+              <CornerDownLeft size={20} /> {isSaving ? 'Processing...' : 'Process Return & Credit Balance'}
+            </button>
+        </div>
+      </form>
     </div>
   )
 }

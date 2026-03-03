@@ -176,10 +176,13 @@ export async function deleteCustomerCategory(id: string) {
 // ==========================================
 export async function createInvoice(invoiceData: any) {
   const userId = await getUser()
+  const dateToSave = invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date()
+  
   const result = await prisma.$transaction(async (tx: any) => {
     return await tx.invoice.create({
       data: {
         customerId: invoiceData.customerId, totalAmount: Number(invoiceData.totalAmount) || 0, paidAmount: Number(invoiceData.paidAmount) || 0, discountAmount: Number(invoiceData.discountAmount) || 0, isReturn: invoiceData.isReturn || false, isHold: invoiceData.isHold || false, userId: userId,
+        createdAt: dateToSave,
         items: { create: invoiceData.items.map((item: any) => ({ productId: item.productId, quantity: Number(item.quantity), price: Number(item.price) })) }
       }
     })
@@ -192,12 +195,15 @@ export async function updateInvoice(invoiceId: string, invoiceData: any) {
   const existing = await prisma.invoice.findUnique({ where: { id: invoiceId } })
   if (existing?.userId !== userId) throw new Error("Unauthorized")
 
+  const dateToSave = invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : existing.createdAt
+
   await prisma.$transaction(async (tx: any) => {
     await tx.invoiceItem.deleteMany({ where: { invoiceId } })
     await tx.invoice.update({
       where: { id: invoiceId },
       data: { 
           customerId: invoiceData.customerId, totalAmount: Number(invoiceData.totalAmount) || 0, paidAmount: Number(invoiceData.paidAmount) || 0, discountAmount: Number(invoiceData.discountAmount) || 0, isHold: invoiceData.isHold || false,
+          createdAt: dateToSave,
           items: { create: invoiceData.items.map((item: any) => ({ productId: item.productId, quantity: Number(item.quantity), price: Number(item.price) })) }
       }
     })
@@ -252,8 +258,17 @@ export async function bulkUpdatePayments(updates: { id: string, paidAmount: numb
   revalidateAll()
 }
 
-export async function processSmartReturn(originalInvoiceId: string, returnItems: any[], totalReturnAmount: number, customerId: string) {
-  const userId = await getUser(); await prisma.invoice.create({ data: { isReturn: true, totalAmount: Number(totalReturnAmount) || 0, paidAmount: 0, discountAmount: 0, customerId: customerId, userId: userId, items: { create: returnItems.map((item: any) => ({ productId: item.productId, quantity: Number(item.quantity), price: Number(item.price) })) } } }); revalidateAll()
+export async function processSmartReturn(originalInvoiceId: string, returnItems: any[], totalReturnAmount: number, customerId: string, returnDate?: string) {
+  const userId = await getUser(); 
+  const dateToSave = returnDate ? new Date(returnDate) : new Date();
+  await prisma.invoice.create({ 
+      data: { 
+          isReturn: true, totalAmount: Number(totalReturnAmount) || 0, paidAmount: 0, discountAmount: 0, customerId: customerId, userId: userId, 
+          createdAt: dateToSave, 
+          items: { create: returnItems.map((item: any) => ({ productId: item.productId, quantity: Number(item.quantity), price: Number(item.price) })) } 
+      } 
+  }); 
+  revalidateAll()
 }
 
 export async function getCustomerBalance(customerId: string) {
@@ -378,21 +393,30 @@ export async function getLedgerReportData(from?: Date, to?: Date) {
 // ==========================================
 // 5. RECEIVABLES & VOUCHERS
 // ==========================================
-export async function createVouchers(vouchers: { customerId: string, amount: number }[]) {
+export async function createVouchers(vouchers: { customerId: string, amount: number }[], voucherDate?: string) {
   const userId = await getUser()
+  const dateToSave = voucherDate ? new Date(voucherDate) : new Date()
+
   await prisma.$transaction(
     vouchers.map(v => prisma.invoice.create({
-      data: { customerId: v.customerId, totalAmount: 0, paidAmount: Number(v.amount), discountAmount: 0, isReturn: false, isHold: false, userId: userId, items: { create: [] } }
+      data: { customerId: v.customerId, totalAmount: 0, paidAmount: Number(v.amount), discountAmount: 0, isReturn: false, isHold: false, userId: userId, createdAt: dateToSave, items: { create: [] } }
     }))
   )
   revalidateAll()
 }
-export async function updateVoucher(id: string, amount: number) {
+
+// FIX: Added `voucherDate` argument to update the date as well
+export async function updateVoucher(id: string, amount: number, voucherDate?: string) {
   const userId = await getUser()
-  // Ensure we are only editing a voucher (totalAmount: 0) that belongs to the user
-  await prisma.invoice.updateMany({
-    where: { id, userId, totalAmount: 0 },
-    data: { paidAmount: Number(amount) }
+  
+  const dataToUpdate: any = { paidAmount: Number(amount) }
+  if (voucherDate) {
+      dataToUpdate.createdAt = new Date(voucherDate)
+  }
+
+  await prisma.invoice.updateMany({ 
+      where: { id, userId, totalAmount: 0 }, 
+      data: dataToUpdate 
   })
   revalidateAll()
 }

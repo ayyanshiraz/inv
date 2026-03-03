@@ -11,7 +11,9 @@ export default function VoucherForm({ customers }: { customers: any[] }) {
   const [activeRowDrop, setActiveRowDrop] = useState<number | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // FIX: Added `c.id` to the search filter!
+  // NEW: Custom Date State
+  const [voucherDate, setVoucherDate] = useState(new Date().toISOString().split('T')[0])
+
   const filteredCustomers = (index: number) => {
       const query = (rows[index]?.search || '').toLowerCase();
       return customers.filter(c => 
@@ -34,7 +36,6 @@ export default function VoucherForm({ customers }: { customers: any[] }) {
       newRows[index].balance = c.balance
       setRows(newRows)
       setActiveRowDrop(null)
-      
       setTimeout(() => document.getElementById(`amount-${index}`)?.focus(), 50)
   }
 
@@ -59,7 +60,7 @@ export default function VoucherForm({ customers }: { customers: any[] }) {
       const data = validRows.map(r => ({ customerId: r.customerId, amount: Number(r.amount) }))
       
       try {
-          await createVouchers(data)
+          await createVouchers(data, voucherDate) // Sends Date to DB
           alert("Vouchers recorded successfully!")
           router.push('/receivables')
       } catch (err) {
@@ -68,16 +69,15 @@ export default function VoucherForm({ customers }: { customers: any[] }) {
       }
   }
 
-  const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
-
   return (
     <div className="bg-white p-4 md:p-8 rounded-2xl shadow-xl border border-slate-200">
         {activeRowDrop !== null && <div className="fixed inset-0 z-30" onClick={() => setActiveRowDrop(null)} />}
 
+        {/* THE VISUAL DATE PICKER */}
         <div className="flex flex-wrap items-center gap-6 mb-6 p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700">
             <div className="flex items-center gap-3">
                 <span className="font-black text-slate-900">Date:</span>
-                <div className="bg-slate-200 px-4 py-1.5 rounded text-slate-600">{today}</div>
+                <input type="date" value={voucherDate} onChange={(e) => setVoucherDate(e.target.value)} className="bg-white border border-slate-300 px-3 py-1.5 rounded outline-none cursor-pointer" />
             </div>
             <div className="flex items-center gap-3">
                 <span className="font-black text-slate-900">MOP:</span>
@@ -130,12 +130,9 @@ export default function VoucherForm({ customers }: { customers: any[] }) {
                                     <div className="absolute left-0 top-full mt-1 w-full md:w-[400px] z-[100] bg-white border border-slate-300 shadow-2xl rounded-lg max-h-60 overflow-y-auto p-1">
                                         {filteredCustomers(i).map(c => (
                                             <div key={c.id} onClick={() => handleSelectCustomer(i, c)} className="p-3 cursor-pointer rounded text-slate-900 hover:bg-slate-100 flex justify-between items-center border-b border-slate-50 last:border-0">
-                                                
-                                                {/* FIX: Shows ID next to name in dropdown */}
                                                 <span className="font-black text-xs uppercase">
                                                     {c.name} <span className="text-[10px] text-slate-400 font-mono ml-2 lowercase">#{c.id}</span>
                                                 </span>
-
                                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${c.balance > 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>PKR {c.balance.toLocaleString()}</span>
                                             </div>
                                         ))}
