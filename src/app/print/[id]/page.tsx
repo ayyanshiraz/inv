@@ -97,7 +97,7 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
             <div className="flex justify-between items-center mb-4">
                 {/* LOGO FIX: Scaled to 135% to push black borders completely out of the frame */}
                 <div className="w-16 h-16 overflow-hidden flex items-center justify-center shrink-0 bg-white">
-                    <img src="/logo.jpeg" alt="Logo" className="w-[135%] h-[135%] max-w-none object-cover object-center" />
+                    <img src="/logo.png" alt="Logo" className="w-[135%] h-[135%] max-w-none object-cover object-center" />
                 </div>
 
                 <div className="text-center flex-1 px-2">
