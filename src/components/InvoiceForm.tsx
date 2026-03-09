@@ -5,6 +5,21 @@ import { useRouter } from 'next/navigation'
 import { Search, Plus, Trash2, Save, FileClock } from 'lucide-react'
 import { createInvoice, updateInvoice, getCustomerBalance } from '@/actions/actions'
 
+const getPKTDateString = (dateObj?: Date | string) => {
+    const targetDate = dateObj ? new Date(dateObj) : new Date();
+    const pkt = new Date(targetDate.toLocaleString('en-US', { timeZone: 'Asia/Karachi' }));
+    return `${pkt.getFullYear()}-${String(pkt.getMonth() + 1).padStart(2, '0')}-${String(pkt.getDate()).padStart(2, '0')}`;
+};
+
+// Strict format for the un-focused state
+const formatDDMMYYYY = (dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const [year, month, day] = parts;
+    return `${day}/${month}/${year}`;
+}
+
 export default function InvoiceForm({ customers, products, initialData }: { customers: any[], products: any[], initialData?: any }) {
   const router = useRouter()
   
@@ -13,7 +28,8 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
   const [showCustDropdown, setShowCustDropdown] = useState(false)
   const [prevBalance, setPrevBalance] = useState(0)
 
-  const [invoiceDate, setInvoiceDate] = useState(initialData?.createdAt ? new Date(initialData.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0])
+  const [invoiceDate, setInvoiceDate] = useState(initialData?.createdAt ? getPKTDateString(initialData.createdAt) : getPKTDateString())
+  const [dateFocus, setDateFocus] = useState(false)
 
   const [rows, setRows] = useState([{ id: Date.now().toString(), productId: '', search: '', price: '', quantity: 1, total: 0, unit: '' }])
   const [activeRowDrop, setActiveRowDrop] = useState<number | null>(null)
@@ -25,7 +41,12 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
   const [prodHoverIndex, setProdHoverIndex] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const filteredCustomers = customers.filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase()) || (c.phone && c.phone.includes(custSearch)))
+  const filteredCustomers = customers.filter(c => 
+      c.name.toLowerCase().includes(custSearch.toLowerCase()) || 
+      (c.phone && c.phone.includes(custSearch)) ||
+      c.id.toLowerCase().includes(custSearch.toLowerCase())
+  )
+  
   const filteredProducts = (index: number) => products.filter(p => p.name.toLowerCase().includes(rows[index]?.search.toLowerCase()) || p.id.toLowerCase().includes(rows[index]?.search.toLowerCase()))
 
   const subTotal = rows.reduce((sum, row) => sum + row.total, 0)
@@ -42,9 +63,17 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
 
     setIsSubmitting(true)
 
+    const todayStr = getPKTDateString();
+    let finalTimestamp;
+    if (invoiceDate === todayStr) {
+        finalTimestamp = new Date().toISOString(); 
+    } else {
+        finalTimestamp = new Date(`${invoiceDate}T12:00:00+05:00`).toISOString(); 
+    }
+
     const data = { 
         customerId: selectedCustomer.id, 
-        invoiceDate: invoiceDate,
+        invoiceDate: finalTimestamp, 
         totalAmount: currentTotal, 
         discountAmount: numericDiscount, 
         paidAmount: numericPaid, 
@@ -78,11 +107,10 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
     }
   }
 
-  // FIX: Using e.code checks the physical keyboard key, ignoring the active language (Urdu/English)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.shiftKey && (e.code === 'KeyS' || e.key.toLowerCase() === 's')) { e.preventDefault(); handleSave(false); }
-        if (e.shiftKey && (e.code === 'KeyA' || e.key.toLowerCase() === 'a')) { e.preventDefault(); handleSave(true); }
+        if (e.shiftKey && (e.code === 'Minus' || e.key === '_')) { e.preventDefault(); handleSave(false); }
+        if (e.shiftKey && (e.code === 'Equal' || e.key === '+')) { e.preventDefault(); handleSave(true); }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -179,7 +207,17 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
         <div className="flex flex-col md:flex-row w-full lg:w-1/2 gap-4">
             <div className="w-full md:w-1/2">
                 <label className="text-xs font-black uppercase text-slate-800 mb-2 block">Invoice Date</label>
-                <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className="w-full p-3 bg-white border-2 border-slate-300 rounded-xl font-black text-slate-900 outline-none focus:border-blue-600 transition cursor-pointer" />
+                
+                {/* THE FOCUS SWAP FIX: Fully editable, un-glitchable DD/MM/YYYY */}
+                <input 
+                    type={dateFocus ? "date" : "text"} 
+                    value={dateFocus ? invoiceDate : formatDDMMYYYY(invoiceDate)} 
+                    onChange={(e) => setInvoiceDate(e.target.value)} 
+                    onFocus={() => setDateFocus(true)}
+                    onBlur={() => setDateFocus(false)}
+                    className="w-full p-3 bg-white border-2 border-slate-300 rounded-xl font-black text-slate-900 outline-none focus:border-blue-600 transition cursor-pointer text-center tracking-widest" 
+                />
+
             </div>
             <div className="w-full md:w-1/2 bg-slate-50 p-3 rounded-xl flex flex-col justify-center items-center md:items-end border-2 border-slate-200 mt-4 md:mt-0">
                 <span className="text-[10px] font-black uppercase text-slate-500 mb-1">Previous Balance</span>
@@ -209,7 +247,7 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
               </div>
 
               {activeRowDrop === i && (
-                  <div className="absolute top-full left-0 w-full mt-1 bg-white border-2 border-slate-300 shadow-2xl rounded-lg max-h-48 overflow-y-auto z-50 p-1">
+                  <div className="absolute top-full left-0 w-full mt-1 bg-white border-2 border-slate-300 shadow-2xl rounded-lg max-h-48 overflow-y-auto z-[9999] p-1">
                       {filteredProducts(i).map((p, idx) => (
                           <div key={p.id} onClick={() => handleSelectProduct(i, p)} onMouseEnter={() => setProdHoverIndex(idx)} className={`p-3 md:p-2 cursor-pointer rounded text-slate-900 flex justify-between items-center ${prodHoverIndex === idx ? 'bg-blue-100' : 'hover:bg-slate-100'}`}>
                               <p className="font-black text-sm uppercase">{p.name}</p>
@@ -288,12 +326,12 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
           {!initialData?.isReturn && (
               <button onClick={() => handleSave(true)} type="button" disabled={isSubmitting} style={{ backgroundColor: '#f97316', color: 'white' }} className="flex-1 py-5 rounded-xl font-black text-sm md:text-lg uppercase tracking-widest shadow-xl hover:opacity-90 transition active:scale-95 flex flex-col items-center justify-center disabled:opacity-50">
                 <span>Save as Quotation (Hold)</span>
-                <span className="text-[10px] opacity-75 mt-1 font-bold">Shortcut: Shift + A</span>
+                <span className="text-[10px] opacity-75 mt-1 font-bold">Shortcut: Shift + =</span>
               </button>
           )}
           <button onClick={() => handleSave(false)} type="button" disabled={isSubmitting} style={{ backgroundColor: initialData?.isReturn ? '#dc2626' : '#2563eb', color: 'white' }} className="flex-[1.5] py-5 rounded-xl font-black text-sm md:text-lg uppercase tracking-widest shadow-xl hover:opacity-90 transition active:scale-95 flex flex-col items-center justify-center disabled:opacity-50">
             <span>{isSubmitting ? 'Saving...' : (initialData ? (initialData.isReturn ? 'Update Return Record' : 'Update & Print Invoice') : 'Generate & Print Invoice')}</span>
-            <span className="text-[10px] opacity-75 mt-1 font-bold">Shortcut: Shift + S</span>
+            <span className="text-[10px] opacity-75 mt-1 font-bold">Shortcut: Shift + -</span>
           </button>
       </div>
     </div>

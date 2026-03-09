@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { saveCustomer, deleteCustomer } from '@/actions/actions'
 
-export default function CustomerManager({ customers, categories }: { customers: any[], categories: any[] }) {
-  const [formData, setFormData] = useState({ id: '', name: '', phone: '', address: '', category: '', openingBalance: 0 })
+export default function CustomerManager({ customers = [], categories = [] }: { customers: any[], categories: any[] }) {
+  const [formData, setFormData] = useState<{id: string, name: string, phone: string, address: string, category: string, openingBalance: number | ''}>({ id: '', name: '', phone: '', address: '', category: '', openingBalance: 0 })
   const [isEditing, setIsEditing] = useState(false)
   const [originalId, setOriginalId] = useState('')
 
@@ -18,7 +18,7 @@ export default function CustomerManager({ customers, categories }: { customers: 
     if(confirm('Are you sure you want to delete this customer?')) {
         const res = await deleteCustomer(id)
         if (res?.error) {
-            alert(res.error) // ALERTS THE FOREIGN KEY ERROR
+            alert(res.error)
         }
     }
   }
@@ -70,7 +70,7 @@ export default function CustomerManager({ customers, categories }: { customers: 
             <select name="category" value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})}
               className="w-full rounded-xl border-2 bg-slate-50 border-slate-200 p-4 font-bold text-slate-900 outline-none focus:border-blue-600 uppercase">
               <option value="">No Category</option>
-              {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+              {categories && categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
           </div>
 
@@ -82,7 +82,7 @@ export default function CustomerManager({ customers, categories }: { customers: 
 
           <div className="md:col-span-2 bg-blue-50 p-4 rounded-xl border border-blue-200">
             <label className="block text-[10px] font-black uppercase tracking-widest text-blue-800 mb-2">Opening Balance (PKR)</label>
-            <input type="number" name="openingBalance" value={formData.openingBalance} onChange={(e) => setFormData({...formData, openingBalance: Number(e.target.value)})} placeholder="0"
+            <input type="number" name="openingBalance" value={formData.openingBalance} onChange={(e) => setFormData({...formData, openingBalance: e.target.value === '' ? '' : Number(e.target.value)})} placeholder="0"
               className="w-full rounded-xl border-2 bg-white border-blue-300 p-4 font-black text-blue-900 outline-none focus:border-blue-600 text-lg" />
           </div>
 
@@ -103,7 +103,7 @@ export default function CustomerManager({ customers, categories }: { customers: 
             <tr><th className="p-4">ID</th><th className="p-4">Name</th><th className="p-4">Category</th><th className="p-4">Phone</th><th className="p-4 text-right">Opening Bal</th><th className="p-4 text-right">Actions</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm font-bold text-slate-700">
-            {customers.map((c) => (
+            {customers && customers.length > 0 ? customers.map((c) => (
               <tr key={c.id} className="hover:bg-slate-50 transition">
                 <td className="p-4 font-mono text-xs text-slate-400 uppercase">{c.id}</td>
                 <td className="p-4 uppercase text-slate-900">{c.name}</td>
@@ -115,7 +115,7 @@ export default function CustomerManager({ customers, categories }: { customers: 
                   <button onClick={() => handleDelete(c.id)} className="px-3 py-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100 uppercase text-[10px] font-black tracking-widest transition">Delete</button>
                 </td>
               </tr>
-            ))}
+            )) : <tr><td colSpan={6} className="p-8 text-center text-slate-400">No customers found.</td></tr>}
           </tbody>
         </table>
       </div>

@@ -4,15 +4,16 @@ import { useState } from 'react'
 import { Edit, Trash2, Save, X } from 'lucide-react'
 import { deleteInvoice, updateVoucher } from '@/actions/actions'
 
-const formatPKTDate = (dateStr: string) => {
-    if (!dateStr) return '---';
-    return new Date(dateStr).toLocaleDateString('en-GB', { timeZone: 'Asia/Karachi', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '/');
-}
+const getPKTDateString = (dateObj?: Date | string) => {
+    const targetDate = dateObj ? new Date(dateObj) : new Date();
+    const pkt = new Date(targetDate.toLocaleString('en-US', { timeZone: 'Asia/Karachi' }));
+    return `${pkt.getFullYear()}-${String(pkt.getMonth() + 1).padStart(2, '0')}-${String(pkt.getDate()).padStart(2, '0')}`;
+};
 
 export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
     const [editingId, setEditingId] = useState<string | null>(null)
     const [editAmount, setEditAmount] = useState<string>('')
-    const [editDiscount, setEditDiscount] = useState<string>('') // Added discount edit
+    const [editDiscount, setEditDiscount] = useState<string>('') 
     const [editDate, setEditDate] = useState<string>('')
     const [isSaving, setIsSaving] = useState(false)
 
@@ -20,8 +21,7 @@ export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
         setEditingId(v.id)
         setEditAmount((v.paidAmount || 0).toString())
         setEditDiscount((v.discountAmount || 0).toString())
-        const pkt = new Date(new Date(v.createdAt).toLocaleString('en-US', { timeZone: 'Asia/Karachi' }));
-        setEditDate(`${pkt.getFullYear()}-${String(pkt.getMonth() + 1).padStart(2, '0')}-${String(pkt.getDate()).padStart(2, '0')}`)
+        setEditDate(getPKTDateString(v.createdAt))
     }
 
     const handleSave = async (id: string) => {
@@ -31,8 +31,18 @@ export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
         if (!editDate) return alert("Please select a valid date.")
         
         setIsSaving(true)
+        
+        // PKT Injection Logic
+        const todayStr = getPKTDateString();
+        let finalEditDate;
+        if (editDate === todayStr) {
+            finalEditDate = new Date().toISOString();
+        } else {
+            finalEditDate = new Date(`${editDate}T12:00:00+05:00`).toISOString();
+        }
+
         try {
-            await updateVoucher(id, numAmount, editDate, numDiscount)
+            await updateVoucher(id, numAmount, finalEditDate, numDiscount)
             setEditingId(null)
         } catch (e) {
             alert("Error updating voucher.")
@@ -68,7 +78,7 @@ export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
                                     {editingId === v.id ? (
                                         <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="w-full p-2 border-2 border-blue-400 rounded-lg bg-white text-slate-900 font-bold outline-none shadow-inner" />
                                     ) : (
-                                        formatPKTDate(v.createdAt)
+                                        new Date(v.createdAt).toLocaleDateString('en-GB', { timeZone: 'Asia/Karachi', day: '2-digit', month: '2-digit', year: 'numeric' })
                                     )}
                                 </td>
                                 
@@ -78,7 +88,6 @@ export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
                                 
                                 <td className="p-4 uppercase text-slate-900">{v.customer.name}</td>
                                 
-                                {/* DISCOUNT CELL */}
                                 <td className="p-4 text-right">
                                     {editingId === v.id ? (
                                         <input type="number" value={editDiscount} onChange={(e) => setEditDiscount(e.target.value)} className="w-full p-2 border-2 border-orange-400 rounded-lg bg-white text-orange-700 font-black outline-none text-right shadow-inner" />
@@ -87,7 +96,6 @@ export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
                                     )}
                                 </td>
 
-                                {/* AMOUNT CELL */}
                                 <td className="p-4 text-right">
                                     {editingId === v.id ? (
                                         <input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className="w-full p-2 border-2 border-emerald-400 rounded-lg bg-white text-emerald-700 font-black outline-none text-right shadow-inner" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') handleSave(v.id); if (e.key === 'Escape') setEditingId(null); }} />

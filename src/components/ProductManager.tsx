@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { saveProduct, deleteProduct } from '@/actions/actions'
 
-export default function ProductManager({ products, categories }: { products: any[], categories: any[] }) {
+export default function ProductManager({ products = [], categories = [] }: { products: any[], categories: any[] }) {
   const [formData, setFormData] = useState({ id: '', name: '', category: '', unit: 'Bags', cost: 0, price: 0 })
   const [isEditing, setIsEditing] = useState(false)
   const [originalId, setOriginalId] = useState('')
@@ -18,7 +18,7 @@ export default function ProductManager({ products, categories }: { products: any
     if(confirm('Are you sure you want to delete this product?')) {
         const res = await deleteProduct(id)
         if (res?.error) {
-            alert(res.error) // ALERTS THE FOREIGN KEY ERROR
+            alert(res.error)
         }
     }
   }
@@ -64,7 +64,7 @@ export default function ProductManager({ products, categories }: { products: any
             <select name="category" value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})}
               className="w-full rounded-xl border-2 bg-slate-50 border-slate-200 p-4 font-bold text-slate-900 outline-none focus:border-blue-600 uppercase">
               <option value="">No Category</option>
-              {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+              {categories && categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
           </div>
 
@@ -107,7 +107,7 @@ export default function ProductManager({ products, categories }: { products: any
             <tr><th className="p-4">ID</th><th className="p-4">Name</th><th className="p-4">Category</th><th className="p-4 text-center">Unit</th><th className="p-4 text-right">Cost</th><th className="p-4 text-right">Price</th><th className="p-4 text-right">Actions</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm font-bold text-slate-700">
-            {products.map((p) => (
+            {products && products.length > 0 ? products.map((p) => (
               <tr key={p.id} className="hover:bg-slate-50 transition">
                 <td className="p-4 font-mono text-xs text-slate-400 uppercase">{p.id}</td>
                 <td className="p-4 uppercase text-slate-900">{p.name}</td>
@@ -120,7 +120,7 @@ export default function ProductManager({ products, categories }: { products: any
                   <button onClick={() => handleDelete(p.id)} className="px-3 py-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100 uppercase text-[10px] font-black tracking-widest transition">Delete</button>
                 </td>
               </tr>
-            ))}
+            )) : <tr><td colSpan={7} className="p-8 text-center text-slate-400">No products found.</td></tr>}
           </tbody>
         </table>
       </div>

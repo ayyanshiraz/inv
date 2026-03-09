@@ -5,19 +5,28 @@ import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Save } from 'lucide-react'
 import { createVouchers } from '@/actions/actions'
 
-const getPKTString = () => {
+const getPKTDateString = () => {
     const pkt = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Karachi' }));
     return `${pkt.getFullYear()}-${String(pkt.getMonth() + 1).padStart(2, '0')}-${String(pkt.getDate()).padStart(2, '0')}`;
 };
 
+// Strict format for the un-focused state
+const formatDDMMYYYY = (dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const [year, month, day] = parts;
+    return `${day}/${month}/${year}`;
+}
+
 export default function VoucherForm({ customers }: { customers: any[] }) {
   const router = useRouter()
-  // Added discount field to row state
   const [rows, setRows] = useState([{ id: Date.now().toString(), customerId: '', search: '', balance: 0, amount: '', discount: '' }])
   const [activeRowDrop, setActiveRowDrop] = useState<number | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const [voucherDate, setVoucherDate] = useState(getPKTString())
+  const [voucherDate, setVoucherDate] = useState(getPKTDateString())
+  const [dateFocus, setDateFocus] = useState(false)
 
   const filteredCustomers = (index: number) => {
       const query = (rows[index]?.search || '').toLowerCase();
@@ -50,10 +59,19 @@ export default function VoucherForm({ customers }: { customers: any[] }) {
       if (validRows.length === 0) return alert("Please enter at least one valid amount or discount.")
       
       setIsSubmitting(true)
+      
+      const todayStr = getPKTDateString();
+      let finalVoucherDate;
+      if (voucherDate === todayStr) {
+          finalVoucherDate = new Date().toISOString();
+      } else {
+          finalVoucherDate = new Date(`${voucherDate}T12:00:00+05:00`).toISOString();
+      }
+
       const data = validRows.map(r => ({ customerId: r.customerId, amount: Number(r.amount) || 0, discount: Number(r.discount) || 0 }))
       
       try {
-          await createVouchers(data, voucherDate)
+          await createVouchers(data, finalVoucherDate)
           alert("Vouchers recorded successfully!")
           router.push('/receivables')
       } catch (err) {
@@ -69,7 +87,17 @@ export default function VoucherForm({ customers }: { customers: any[] }) {
         <div className="flex flex-wrap items-center gap-6 mb-6 p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700">
             <div className="flex items-center gap-3">
                 <span className="font-black text-slate-900">Date:</span>
-                <input type="date" value={voucherDate} onChange={(e) => setVoucherDate(e.target.value)} className="bg-white border border-slate-300 px-3 py-1.5 rounded outline-none cursor-pointer font-bold" />
+                
+                {/* THE FOCUS SWAP FIX */}
+                <input 
+                    type={dateFocus ? "date" : "text"} 
+                    value={dateFocus ? voucherDate : formatDDMMYYYY(voucherDate)} 
+                    onChange={(e) => setVoucherDate(e.target.value)} 
+                    onFocus={() => setDateFocus(true)}
+                    onBlur={() => setDateFocus(false)}
+                    className="bg-white border border-slate-300 px-3 py-1.5 rounded outline-none cursor-pointer font-bold w-36 text-center tracking-widest" 
+                />
+
             </div>
             <div className="flex items-center gap-3">
                 <span className="font-black text-slate-900">MOP:</span>
@@ -81,7 +109,7 @@ export default function VoucherForm({ customers }: { customers: any[] }) {
             </div>
         </div>
 
-        <div className="w-full relative z-40 border rounded-xl border-slate-300 bg-white overflow-hidden">
+        <div className="w-full relative z-40 border rounded-xl border-slate-300 bg-white">
             <table className="w-full border-collapse text-sm">
                 <thead className="bg-slate-100 border-b border-slate-300 text-[10px] font-black uppercase tracking-widest text-slate-600">
                     <tr>
@@ -114,13 +142,14 @@ export default function VoucherForm({ customers }: { customers: any[] }) {
                                     className="w-full h-full p-3 md:p-4 bg-transparent font-bold text-slate-900 outline-none uppercase placeholder:text-slate-300 placeholder:font-normal focus:bg-blue-50/50 transition-colors" 
                                 />
                                 {activeRowDrop === i && (
-                                    <div className="absolute left-0 top-full mt-1 w-full md:w-[400px] z-[100] bg-white border border-slate-300 shadow-2xl rounded-lg max-h-60 overflow-y-auto p-1">
+                                    <div className="absolute left-0 top-full mt-1 w-full md:w-[400px] z-[9999] bg-white border border-slate-300 shadow-2xl rounded-lg max-h-60 overflow-y-auto p-1">
                                         {filteredCustomers(i).map(c => (
                                             <div key={c.id} onClick={() => handleSelectCustomer(i, c)} className="p-3 cursor-pointer rounded text-slate-900 hover:bg-slate-100 flex justify-between items-center border-b border-slate-50 last:border-0">
                                                 <span className="font-black text-xs uppercase">{c.name} <span className="text-[10px] text-slate-400 font-mono ml-2 lowercase">#{c.id}</span></span>
                                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${c.balance > 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>PKR {c.balance.toLocaleString()}</span>
                                             </div>
                                         ))}
+                                        {filteredCustomers(i).length === 0 && <div className="p-4 text-center text-slate-400 font-bold text-xs uppercase tracking-widest">No customers found</div>}
                                     </div>
                                 )}
                             </td>
@@ -129,7 +158,6 @@ export default function VoucherForm({ customers }: { customers: any[] }) {
                                 <div className="w-full h-full p-3 md:p-4 text-right font-black text-slate-500 truncate">{row.customerId ? row.balance.toLocaleString() : '---'}</div>
                             </td>
 
-                            {/* DISCOUNT FIELD */}
                             <td className="p-0 border-r border-slate-200 bg-orange-50/30">
                                 <input id={`discount-${i}`} type="number" placeholder="0" value={row.discount} 
                                     onChange={(e) => updateRow(i, 'discount', e.target.value)} onFocus={(e) => e.target.select()} 
@@ -138,7 +166,6 @@ export default function VoucherForm({ customers }: { customers: any[] }) {
                                 />
                             </td>
 
-                            {/* AMOUNT FIELD */}
                             <td className="p-0 border-r border-slate-200 bg-emerald-50/30">
                                 <input id={`amount-${i}`} type="number" placeholder="0" value={row.amount} 
                                     onChange={(e) => updateRow(i, 'amount', e.target.value)} onFocus={(e) => e.target.select()} 

@@ -56,26 +56,19 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
           .urdu-text { font-family: 'Noto Nastaliq Urdu', serif; line-height: 1.8; font-weight: 700 !important; }
           
           @media print {
-              @page { size: A5 portrait; margin: 0 !important; }
-              body, html { margin: 0 !important; padding: 0 !important; background: white !important; height: auto !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; display: block !important; }
+              @page { size: A5 portrait; margin: 6mm !important; }
+              body, html { margin: 0 !important; padding: 0 !important; background: white !important; display: block !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
               .no-print, aside, nav, header, [class*="fixed"] { display: none !important; }
               
+              /* Removed all height constraints to stop Safari overflowing */
               .invoice-page { 
                   width: 148mm !important; 
-                  height: 188mm !important; 
-                  max-height: 188mm !important; 
                   margin: 0 auto !important; 
-                  padding: 6mm !important; 
+                  padding: 5mm !important; 
                   box-sizing: border-box !important;
                   border: none !important; 
-                  page-break-after: always !important;
-                  page-break-inside: avoid !important;
                   display: block !important;
-                  position: relative !important;
-                  overflow: hidden !important; 
-              }
-              .invoice-page:last-of-type {
-                  page-break-after: auto !important;
+                  page-break-inside: avoid !important;
               }
           }
           
@@ -86,16 +79,15 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
         `}</style>
 
         <div className="no-print bg-white w-full max-w-[148mm] p-4 flex justify-between items-center shadow mb-6 rounded-xl border border-slate-200 mx-auto">
-            <h1 className="font-black text-sm text-slate-800">Uncheck 'Headers' in Safari</h1>
+            <h1 className="font-black text-sm text-slate-800">Print Preview</h1>
             <PrintPageButton title="Print A5 Receipt" />
         </div>
 
-        <div className="w-full max-w-[148mm] mx-auto block print:w-full print:max-w-none print:m-0 print:p-0">
-            <div className="invoice-page bg-white w-[148mm] h-[188mm] mx-auto p-[6mm] shadow-2xl relative text-black box-border block print:shadow-none print:m-0">
+        <div className="w-full block print:w-full print:max-w-none print:m-0 print:p-0">
+            <div className="invoice-page bg-white w-[148mm] mx-auto p-[5mm] shadow-2xl text-black block print:shadow-none print:m-0">
                 
-                <div className="flex justify-between items-center mb-4 shrink-0">
-                    <div className="w-16 h-16 flex items-center justify-center shrink-0 bg-white">
-                        {/* UNFORMATTED LOGO.PNG */}
+                <div className="flex justify-between items-center mb-4">
+                    <div className="w-16 h-16 flex items-center justify-center bg-white">
                         <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
                     </div>
                     <div className="text-center flex-1 px-2">
@@ -110,7 +102,7 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
                     </div>
                 </div>
 
-                <div className="w-[65%] border-[1.5px] border-black mb-4 flex flex-col shrink-0">
+                <div className="w-[65%] border-[1.5px] border-black mb-3 flex flex-col">
                     <div className="bg-gray-200 border-b-[1.5px] border-black px-2 py-0.5 font-black text-[10px] flex justify-between items-center">
                         <span>Bill To:</span>
                         <span className="urdu-text text-[13px]">خریدار:</span>
@@ -129,7 +121,7 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
                     </div>
                 </div>
 
-                <table className="bold-border mb-3 w-full shrink-0">
+                <table className="bold-border mb-3 w-full">
                     <thead>
                         <tr>
                             <th className="w-8 text-center border-b-[1.5px] border-black"><span className="block text-[11px]">Sr.</span><span className="urdu-text text-[12px] block mt-0.5">نمبر</span></th>
@@ -159,7 +151,7 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
                     </tbody>
                 </table>
 
-                <div className="block w-full mb-2 shrink-0">
+                <div className="block w-full mb-6">
                     <table className="w-[190px] bold-border h-fit ml-auto bg-white text-[11px]">
                         <tbody>
                             <tr><td className="font-black w-24 border-b border-black py-1.5 px-2 flex justify-between items-center"><span>Subtotal:</span><span className="urdu-text text-[12px] ml-1">میزان</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">{subtotal.toLocaleString()}</td></tr>
@@ -172,7 +164,7 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
                     </table>
                 </div>
 
-                <div className="absolute bottom-[5mm] left-0 w-full text-center bg-white border-none pb-1">
+                <div className="w-full text-center bg-white border-none pb-2 mt-4 pt-2">
                     <h3 className="urdu-text text-[18px] font-black text-black z-10 text-center mb-0 leading-none">سیلز مین سے لین دین کے لئے رابطہ کریں</h3>
                     <p className="font-black text-[12px] tracking-widest text-black z-10 mt-1">{repDetails.phone}</p>
                 </div>

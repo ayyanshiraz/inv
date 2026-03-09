@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-export default function CategoryManager({ title, categories, saveAction, deleteAction }: { 
+export default function CategoryManager({ title, categories = [], saveAction, deleteAction }: { 
   title: string, 
   categories: any[], 
   saveAction: (data: FormData) => Promise<any>, 
@@ -72,7 +72,7 @@ export default function CategoryManager({ title, categories, saveAction, deleteA
             <tr><th className="p-4">ID</th><th className="p-4">Category Name</th><th className="p-4 text-right">Actions</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm font-bold text-slate-700">
-            {categories.map((c) => (
+            {categories && categories.length > 0 ? categories.map((c) => (
               <tr key={c.id} className="hover:bg-slate-50 transition">
                 <td className="p-4 font-mono text-xs text-slate-400 uppercase">{c.id}</td>
                 <td className="p-4 uppercase text-slate-900">{c.name}</td>
@@ -81,8 +81,7 @@ export default function CategoryManager({ title, categories, saveAction, deleteA
                   <button onClick={() => handleDelete(c.id)} className="px-3 py-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100 uppercase text-[10px] font-black tracking-widest transition">Delete</button>
                 </td>
               </tr>
-            ))}
-            {categories.length === 0 && <tr><td colSpan={3} className="p-8 text-center text-slate-400">No categories found.</td></tr>}
+            )) : <tr><td colSpan={3} className="p-8 text-center text-slate-400">No categories found.</td></tr>}
           </tbody>
         </table>
       </div>
