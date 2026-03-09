@@ -78,10 +78,11 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
     }
   }
 
+  // FIX: Using e.code checks the physical keyboard key, ignoring the active language (Urdu/English)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.shiftKey && e.key.toLowerCase() === 's') { e.preventDefault(); handleSave(false); }
-        if (e.shiftKey && e.key.toLowerCase() === 'a') { e.preventDefault(); handleSave(true); }
+        if (e.shiftKey && (e.code === 'KeyS' || e.key.toLowerCase() === 's')) { e.preventDefault(); handleSave(false); }
+        if (e.shiftKey && (e.code === 'KeyA' || e.key.toLowerCase() === 'a')) { e.preventDefault(); handleSave(true); }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -156,10 +157,8 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
     <div className="bg-white p-4 md:p-8 rounded-2xl shadow-xl border border-slate-200 relative">
       {(showCustDropdown || activeRowDrop !== null) && <div className="fixed inset-0 z-30" onClick={() => { setShowCustDropdown(false); setActiveRowDrop(null); }} />}
 
-      {/* NEW ROBUST LAYOUT: Flexbox prevents squishing on iPads/Laptops */}
       <div className="flex flex-col lg:flex-row gap-4 mb-8 relative z-40">
         
-        {/* CUSTOMER SEARCH */}
         <div className="relative w-full lg:w-1/2">
             <label className="text-xs font-black uppercase text-slate-800 mb-2 block">Search Customer</label>
             <div className="relative">
@@ -177,15 +176,11 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
             )}
         </div>
 
-        {/* DATE & BALANCE WRAPPER */}
         <div className="flex flex-col md:flex-row w-full lg:w-1/2 gap-4">
-            {/* DATE PICKER */}
             <div className="w-full md:w-1/2">
                 <label className="text-xs font-black uppercase text-slate-800 mb-2 block">Invoice Date</label>
                 <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className="w-full p-3 bg-white border-2 border-slate-300 rounded-xl font-black text-slate-900 outline-none focus:border-blue-600 transition cursor-pointer" />
             </div>
-
-            {/* BALANCE BOX */}
             <div className="w-full md:w-1/2 bg-slate-50 p-3 rounded-xl flex flex-col justify-center items-center md:items-end border-2 border-slate-200 mt-4 md:mt-0">
                 <span className="text-[10px] font-black uppercase text-slate-500 mb-1">Previous Balance</span>
                 <span className={`text-2xl font-black leading-none ${prevBalance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>PKR {prevBalance.toLocaleString()}</span>
@@ -283,7 +278,6 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
             </div>
         )}
 
-        {/* LAYOUT FIX FOR REMAINING BALANCE: Stays aligned perfectly */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-t-2 border-slate-900 pt-4 mt-2 gap-2">
             <span className="text-sm font-black uppercase text-slate-600">Remaining Balance:</span> 
             <span className="text-3xl md:text-4xl font-black text-slate-900 leading-none">PKR {remainingBalance.toLocaleString()}</span>

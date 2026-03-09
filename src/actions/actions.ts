@@ -29,6 +29,18 @@ export async function logoutUser() {
   redirect('/login')
 }
 
+async function getNextInvoiceId(userId: string, tx: any) {
+    const allInvoices = await tx.invoice.findMany({ where: { userId }, select: { id: true } });
+    let maxSeq = 0;
+    for (const inv of allInvoices) {
+        if (/^\d+$/.test(inv.id)) {
+            const num = parseInt(inv.id, 10);
+            if (num > maxSeq) maxSeq = num;
+        }
+    }
+    return String(maxSeq + 1).padStart(5, '0');
+}
+
 // ==========================================
 // 1. PRODUCT ACTIONS
 // ==========================================
@@ -46,36 +58,35 @@ export async function saveProduct(formData: FormData) {
 
   if (originalId && originalId !== id) {
       const existing = await prisma.product.findUnique({ where: { id: originalId } })
-      if (existing?.userId !== userId) throw new Error("Unauthorized")
-      await prisma.product.update({ where: { id: originalId }, data: { id, name, category, unit, cost, price } })
+      if (existing?.userId !== userId) return { error: "Unauthorized" }
+      try { await prisma.product.update({ where: { id: originalId }, data: { id, name, category, unit, cost, price } }) } 
+      catch (e) { return { error: "Cannot change Product ID because it is currently linked to past invoices." } }
   } else {
       const existing = await prisma.product.findUnique({ where: { id } })
       if (existing) { 
-          if (existing.userId !== userId) {
-              const uniqueId = `${id}-${Math.floor(Math.random() * 10000)}`
-              await prisma.product.create({ data: { id: uniqueId, name, category, unit, cost, price, stock: 1000, userId } }) 
-          } else {
-              await prisma.product.update({ where: { id }, data: { name, category, unit, cost, price } }) 
-          }
+          if (existing.userId !== userId) return { error: "This Product ID is already in use by the system. Please type a different ID." }
+          else await prisma.product.update({ where: { id }, data: { name, category, unit, cost, price } }) 
       } else { 
           await prisma.product.create({ data: { id, name, category, unit, cost, price, stock: 1000, userId } }) 
       }
   }
-  revalidateAll()
+  revalidateAll(); return { success: true }
 }
 
 export async function deleteProduct(id: string) {
   const userId = await getUser()
   const existing = await prisma.product.findUnique({ where: { id } })
-  if (existing?.userId === userId) { await prisma.product.delete({ where: { id } }) }
-  revalidateAll()
+  if (existing?.userId === userId) { 
+      try { await prisma.product.delete({ where: { id } }); revalidateAll(); return { success: true } } 
+      catch(error) { return { error: "Cannot delete this product because it exists inside past invoices." } }
+  }
+  return { error: "Unauthorized" }
 }
 
 export async function bulkUpdateProductPrices(updates: { id: string, cost: number, price: number }[]) {
   const userId = await getUser()
   const myProducts = await prisma.product.findMany({ where: { userId } })
   const myProductIds = myProducts.map((p: any) => p.id)
-
   const validUpdates = updates.filter(u => myProductIds.includes(u.id))
   await prisma.$transaction( validUpdates.map((update: any) => prisma.product.update({ where: { id: update.id }, data: { cost: Number(update.cost) || 0, price: Number(update.price) || 0 } })) )
   revalidateAll() 
@@ -88,32 +99,25 @@ export async function addProductCategory(formData: FormData) {
   const userId = await getUser()
   const name = formData.get('name') as string
   let id = formData.get('id') as string
-  
   if (!id || id.trim() === '') id = `PCAT-${Math.floor(Math.random() * 100000)}`
-  
   const existing = await prisma.productCategory.findUnique({ where: { id }})
   if (existing) {
-      if (existing.userId !== userId) {
-          const uniqueId = `${id}-${Math.floor(Math.random() * 10000)}`
-          await prisma.productCategory.create({ data: { id: uniqueId, name, userId } }) 
-      } else {
-          await prisma.productCategory.update({ where: { id }, data: { name } }) 
-      }
-  } else { 
-      await prisma.productCategory.create({ data: { id, name, userId } }) 
-  }
-  revalidateAll()
+      if (existing.userId !== userId) return { error: "This Category ID is already in use." }
+      else await prisma.productCategory.update({ where: { id }, data: { name } }) 
+  } else await prisma.productCategory.create({ data: { id, name, userId } }) 
+  revalidateAll(); return { success: true }
 }
 
 export async function deleteProductCategory(id: string) {
   const userId = await getUser()
   const existing = await prisma.productCategory.findUnique({ where: { id }})
-  if (existing?.userId === userId) { await prisma.productCategory.delete({ where: { id } }) }
+  if (existing?.userId === userId) await prisma.productCategory.delete({ where: { id } }) 
   revalidateAll()
 }
 
 export async function saveCustomer(formData: FormData) {
   const userId = await getUser()
+  const originalId = formData.get('originalId') as string 
   let id = formData.get('id') as string
   const name = formData.get('name') as string
   const phone = formData.get('phone') as string
@@ -123,51 +127,48 @@ export async function saveCustomer(formData: FormData) {
 
   if (!id || id.trim() === '') id = `CUST-${Math.floor(Math.random() * 100000)}`
 
-  const existing = await prisma.customer.findUnique({ where: { id } })
-  if (existing) { 
-      if (existing.userId !== userId) {
-          const uniqueId = `${id}-${Math.floor(Math.random() * 10000)}`
-          await prisma.customer.create({ data: { id: uniqueId, name, phone, address, category, openingBalance, userId } }) 
-      } else {
-          await prisma.customer.update({ where: { id }, data: { name, phone, address, category, openingBalance } }) 
-      }
-  } else { 
-      await prisma.customer.create({ data: { id, name, phone, address, category, openingBalance, userId } }) 
+  if (originalId && originalId !== id) {
+      const existing = await prisma.customer.findUnique({ where: { id: originalId } })
+      if (existing?.userId !== userId) return { error: "Unauthorized" }
+      try { await prisma.customer.update({ where: { id: originalId }, data: { id, name, phone, address, category, openingBalance } }) } 
+      catch (e) { return { error: "Cannot change Customer ID because it is currently linked to past invoices." } }
+  } else {
+      const existing = await prisma.customer.findUnique({ where: { id } })
+      if (existing) { 
+          if (existing.userId !== userId) return { error: "This Customer ID is already in use. Please type a different ID." }
+          else await prisma.customer.update({ where: { id }, data: { name, phone, address, category, openingBalance } }) 
+      } else await prisma.customer.create({ data: { id, name, phone, address, category, openingBalance, userId } }) 
   }
-  revalidateAll()
+  revalidateAll(); return { success: true }
 }
 
 export async function deleteCustomer(id: string) {
   const userId = await getUser()
   const existing = await prisma.customer.findUnique({ where: { id } })
-  if (existing?.userId === userId) { try { await prisma.customer.delete({ where: { id } }); revalidateAll() } catch (error) { console.error("Failed", error) } }
+  if (existing?.userId === userId) { 
+      try { await prisma.customer.delete({ where: { id } }); revalidateAll(); return { success: true } } 
+      catch (error) { return { error: "Cannot delete this customer because they have existing invoices or ledgers." } } 
+  }
+  return { error: "Unauthorized" }
 }
 
 export async function addCustomerCategory(formData: FormData) {
   const userId = await getUser()
   const name = formData.get('name') as string
   let id = formData.get('id') as string
-
   if (!id || id.trim() === '') id = `CCAT-${Math.floor(Math.random() * 100000)}`
-
   const existing = await prisma.customerCategory.findUnique({ where: { id }})
   if (existing) { 
-      if (existing.userId !== userId) {
-          const uniqueId = `${id}-${Math.floor(Math.random() * 10000)}`
-          await prisma.customerCategory.create({ data: { id: uniqueId, name, userId } }) 
-      } else {
-          await prisma.customerCategory.update({ where: { id }, data: { name } }) 
-      }
-  } else { 
-      await prisma.customerCategory.create({ data: { id, name, userId } }) 
-  }
-  revalidateAll()
+      if (existing.userId !== userId) return { error: "This Category ID is already in use." }
+      else await prisma.customerCategory.update({ where: { id }, data: { name } }) 
+  } else await prisma.customerCategory.create({ data: { id, name, userId } }) 
+  revalidateAll(); return { success: true }
 }
 
 export async function deleteCustomerCategory(id: string) {
   const userId = await getUser()
   const existing = await prisma.customerCategory.findUnique({ where: { id }})
-  if (existing?.userId === userId) { await prisma.customerCategory.delete({ where: { id } }) }
+  if (existing?.userId === userId) await prisma.customerCategory.delete({ where: { id } }) 
   revalidateAll()
 }
 
@@ -179,10 +180,11 @@ export async function createInvoice(invoiceData: any) {
   const dateToSave = invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date()
   
   const result = await prisma.$transaction(async (tx: any) => {
+    const nextId = await getNextInvoiceId(userId, tx);
     return await tx.invoice.create({
       data: {
-        customerId: invoiceData.customerId, totalAmount: Number(invoiceData.totalAmount) || 0, paidAmount: Number(invoiceData.paidAmount) || 0, discountAmount: Number(invoiceData.discountAmount) || 0, isReturn: invoiceData.isReturn || false, isHold: invoiceData.isHold || false, userId: userId,
-        createdAt: dateToSave,
+        id: nextId,
+        customerId: invoiceData.customerId, totalAmount: Number(invoiceData.totalAmount) || 0, paidAmount: Number(invoiceData.paidAmount) || 0, discountAmount: Number(invoiceData.discountAmount) || 0, isReturn: invoiceData.isReturn || false, isHold: invoiceData.isHold || false, userId: userId, createdAt: dateToSave,
         items: { create: invoiceData.items.map((item: any) => ({ productId: item.productId, quantity: Number(item.quantity), price: Number(item.price) })) }
       }
     })
@@ -202,8 +204,7 @@ export async function updateInvoice(invoiceId: string, invoiceData: any) {
     await tx.invoice.update({
       where: { id: invoiceId },
       data: { 
-          customerId: invoiceData.customerId, totalAmount: Number(invoiceData.totalAmount) || 0, paidAmount: Number(invoiceData.paidAmount) || 0, discountAmount: Number(invoiceData.discountAmount) || 0, isHold: invoiceData.isHold || false,
-          createdAt: dateToSave,
+          customerId: invoiceData.customerId, totalAmount: Number(invoiceData.totalAmount) || 0, paidAmount: Number(invoiceData.paidAmount) || 0, discountAmount: Number(invoiceData.discountAmount) || 0, isHold: invoiceData.isHold || false, createdAt: dateToSave,
           items: { create: invoiceData.items.map((item: any) => ({ productId: item.productId, quantity: Number(item.quantity), price: Number(item.price) })) }
       }
     })
@@ -221,53 +222,29 @@ export async function deleteInvoice(id: string) {
   revalidateAll()
 }
 
-export async function bulkDeleteInvoices(invoiceIds: string[]) {
-  const userId = await getUser()
-  const myInvoices = await prisma.invoice.findMany({ where: { userId } })
-  const validIds = myInvoices.filter((i: any) => invoiceIds.includes(i.id)).map((i: any) => i.id)
-
-  await prisma.invoiceItem.deleteMany({ where: { invoiceId: { in: validIds } } })
-  await prisma.invoice.deleteMany({ where: { id: { in: validIds } } })
-  revalidateAll()
-}
-
 export async function bulkMakeActive(invoiceIds: string[]) {
-  const userId = await getUser()
-  const myInvoices = await prisma.invoice.findMany({ where: { userId } })
-  const validIds = myInvoices.filter((i: any) => invoiceIds.includes(i.id)).map((i: any) => i.id)
-
-  await prisma.$transaction( validIds.map(id => prisma.invoice.update({ where: { id }, data: { isHold: false } })) )
-  revalidateAll()
-}
-
-export async function bulkMarkAsPaid(invoiceIds: string[]) {
-  const userId = await getUser()
-  const myInvoices = await prisma.invoice.findMany({ where: { userId, isReturn: false } })
-  const validInvoices = myInvoices.filter((i: any) => invoiceIds.includes(i.id))
-
-  await prisma.$transaction( validInvoices.map((inv: any) => prisma.invoice.update({ where: { id: inv.id }, data: { paidAmount: inv.totalAmount, isHold: false } })) )
-  revalidateAll()
+  const userId = await getUser(); const myInvoices = await prisma.invoice.findMany({ where: { userId } }); const validIds = myInvoices.filter((i: any) => invoiceIds.includes(i.id)).map((i: any) => i.id);
+  await prisma.$transaction( validIds.map(id => prisma.invoice.update({ where: { id }, data: { isHold: false } })) ); revalidateAll();
 }
 
 export async function bulkUpdatePayments(updates: { id: string, paidAmount: number, discountAmount: number }[]) {
-  const userId = await getUser()
-  const myInvoices = await prisma.invoice.findMany({ where: { userId } })
-  const validUpdates = updates.filter(u => myInvoices.some((i: any) => i.id === u.id))
-
-  await prisma.$transaction( validUpdates.map(u => prisma.invoice.update({ where: { id: u.id }, data: { paidAmount: Number(u.paidAmount) || 0, discountAmount: Number(u.discountAmount) || 0, isHold: false } })) )
-  revalidateAll()
+  const userId = await getUser(); const myInvoices = await prisma.invoice.findMany({ where: { userId } }); const validUpdates = updates.filter(u => myInvoices.some((i: any) => i.id === u.id));
+  await prisma.$transaction( validUpdates.map(u => prisma.invoice.update({ where: { id: u.id }, data: { paidAmount: Number(u.paidAmount) || 0, discountAmount: Number(u.discountAmount) || 0, isHold: false } })) ); revalidateAll();
 }
 
 export async function processSmartReturn(originalInvoiceId: string, returnItems: any[], totalReturnAmount: number, customerId: string, returnDate?: string) {
   const userId = await getUser(); 
   const dateToSave = returnDate ? new Date(returnDate) : new Date();
-  await prisma.invoice.create({ 
-      data: { 
-          isReturn: true, totalAmount: Number(totalReturnAmount) || 0, paidAmount: 0, discountAmount: 0, customerId: customerId, userId: userId, 
-          createdAt: dateToSave, 
-          items: { create: returnItems.map((item: any) => ({ productId: item.productId, quantity: Number(item.quantity), price: Number(item.price) })) } 
-      } 
-  }); 
+  await prisma.$transaction(async (tx: any) => {
+      const nextId = await getNextInvoiceId(userId, tx);
+      await tx.invoice.create({ 
+          data: { 
+              id: nextId,
+              isReturn: true, totalAmount: Number(totalReturnAmount) || 0, paidAmount: 0, discountAmount: 0, customerId: customerId, userId: userId, createdAt: dateToSave, 
+              items: { create: returnItems.map((item: any) => ({ productId: item.productId, quantity: Number(item.quantity), price: Number(item.price) })) } 
+          } 
+      });
+  })
   revalidateAll()
 }
 
@@ -277,7 +254,13 @@ export async function getCustomerBalance(customerId: string) {
   if (!customer || customer.userId !== userId) return 0;
 
   const invoices = await prisma.invoice.findMany({ where: { customerId, userId, isHold: false } })
-  const invoiceBalance = invoices.reduce((acc: number, inv: any) => { return inv.isReturn ? acc - inv.totalAmount : acc + inv.totalAmount - (inv.paidAmount || 0) }, 0)
+  
+  // FIX: Vouchers (total=0) now properly subtract BOTH paidAmount and discountAmount
+  const invoiceBalance = invoices.reduce((acc: number, inv: any) => { 
+      if (inv.isReturn) return acc - inv.totalAmount;
+      if (inv.totalAmount === 0) return acc - (inv.paidAmount || 0) - (inv.discountAmount || 0);
+      return acc + inv.totalAmount - (inv.paidAmount || 0);
+  }, 0)
   return Number(customer.openingBalance || 0) + invoiceBalance 
 }
 
@@ -293,11 +276,6 @@ export async function searchInvoices(query: string) {
   return await prisma.invoice.findMany({ where: { userId, OR: [ { id: { contains: query, mode: 'insensitive' } }, { customer: { name: { contains: query, mode: 'insensitive' } } }, { customer: { phone: { contains: query, mode: 'insensitive' } } } ] }, include: { customer: true, items: { include: { product: true } } }, orderBy: { createdAt: 'desc' }, take: 20 })
 }
 
-export async function getInvoiceDetails(id: string) {
-  const userId = await getUser(); const invoice = await prisma.invoice.findUnique({ where: { id }, include: { customer: true, items: { include: { product: true } } } }); 
-  if (invoice?.userId !== userId) return null; return invoice;
-}
-
 export async function getDashboardStats(from?: Date, to?: Date) {
   const userId = await getUser(); const dateFilter = (from && to) ? { createdAt: { gte: from, lte: to } } : {}
   const invoices = await prisma.invoice.findMany({ where: { userId, ...dateFilter }, include: { items: { include: { product: true } } } })
@@ -309,7 +287,13 @@ export async function getDashboardStats(from?: Date, to?: Date) {
   })
   const customers = await prisma.customer.findMany({ where: { userId } }); const allInvoices = await prisma.invoice.findMany({ where: { userId, isHold: false } }) 
   let totalReceivable = customers.reduce((sum: number, c: any) => sum + Number(c.openingBalance || 0), 0)
-  allInvoices.forEach((inv: any) => { totalReceivable += inv.isReturn ? -Number(inv.totalAmount) : (Number(inv.totalAmount) - Number(inv.paidAmount || 0)) })
+  
+  // FIX: Accurate receivables dashboard calculation including voucher discounts
+  allInvoices.forEach((inv: any) => { 
+      if (inv.isReturn) totalReceivable -= Number(inv.totalAmount);
+      else if (inv.totalAmount === 0) totalReceivable -= (Number(inv.paidAmount || 0) + Number(inv.discountAmount || 0));
+      else totalReceivable += (Number(inv.totalAmount) - Number(inv.paidAmount || 0));
+  })
   return { revenue, returns, netRevenue: revenue - returns, profit: (revenue - returns) - costOfGoods, salesCount, holdCount, margin: revenue > 0 ? (((revenue - returns - costOfGoods) / (revenue - returns)) * 100).toFixed(1) : 0, customerCount: customers.length, totalReceivable }
 }
 
@@ -332,12 +316,17 @@ export async function getLedgerReportData(from?: Date, to?: Date) {
       let openingBalance = Number(cust.openingBalance || 0); let invoicedAmount = 0; let paidAmount = 0; let returnAmount = 0;
       activeInvoices.filter((inv: any) => inv.customerId === cust.id).forEach((inv: any) => {
         const invDate = new Date(inv.createdAt)
+        // Voucher credit includes BOTH cash paid and discount given
+        const voucherCredit = inv.totalAmount === 0 ? (Number(inv.paidAmount || 0) + Number(inv.discountAmount || 0)) : 0;
+
         if (invDate < start) { 
             if (inv.isReturn) openingBalance -= Number(inv.totalAmount); 
+            else if (inv.totalAmount === 0) openingBalance -= voucherCredit;
             else openingBalance += (Number(inv.totalAmount) - Number(inv.paidAmount || 0)) 
         } 
         else if (invDate <= end) { 
             if (inv.isReturn) returnAmount += Number(inv.totalAmount); 
+            else if (inv.totalAmount === 0) paidAmount += voucherCredit;
             else { invoicedAmount += Number(inv.totalAmount); paidAmount += Number(inv.paidAmount || 0) } 
         }
       })
@@ -355,7 +344,7 @@ export async function getLedgerReportData(from?: Date, to?: Date) {
   
     activeInvoices.forEach((inv: any) => {
        const invDate = new Date(inv.createdAt)
-       if (invDate >= start && invDate <= end && !inv.isReturn) {
+       if (invDate >= start && invDate <= end && !inv.isReturn && inv.totalAmount > 0) {
            periodRevenue += Number(inv.totalAmount)
            inv.items.forEach((item: any) => {
                const pId = item.productId; const pCost = Number(item.product?.cost || 0); periodCost += (pCost * Number(item.quantity))
@@ -393,30 +382,29 @@ export async function getLedgerReportData(from?: Date, to?: Date) {
 // ==========================================
 // 5. RECEIVABLES & VOUCHERS
 // ==========================================
-export async function createVouchers(vouchers: { customerId: string, amount: number }[], voucherDate?: string) {
+export async function createVouchers(vouchers: { customerId: string, amount: number, discount?: number }[], voucherDate?: string) {
   const userId = await getUser()
   const dateToSave = voucherDate ? new Date(voucherDate) : new Date()
 
-  await prisma.$transaction(
-    vouchers.map(v => prisma.invoice.create({
-      data: { customerId: v.customerId, totalAmount: 0, paidAmount: Number(v.amount), discountAmount: 0, isReturn: false, isHold: false, userId: userId, createdAt: dateToSave, items: { create: [] } }
-    }))
-  )
+  await prisma.$transaction(async (tx: any) => {
+      const baseIdNum = parseInt(await getNextInvoiceId(userId, tx), 10);
+      for (let i = 0; i < vouchers.length; i++) {
+          const v = vouchers[i];
+          await tx.invoice.create({
+              data: { 
+                  id: String(baseIdNum + i).padStart(5, '0'),
+                  customerId: v.customerId, totalAmount: 0, paidAmount: Number(v.amount), discountAmount: Number(v.discount || 0), isReturn: false, isHold: false, userId: userId, createdAt: dateToSave, items: { create: [] } 
+              }
+          })
+      }
+  })
   revalidateAll()
 }
 
-// FIX: Added `voucherDate` argument to update the date as well
-export async function updateVoucher(id: string, amount: number, voucherDate?: string) {
+export async function updateVoucher(id: string, amount: number, voucherDate?: string, discount?: number) {
   const userId = await getUser()
-  
-  const dataToUpdate: any = { paidAmount: Number(amount) }
-  if (voucherDate) {
-      dataToUpdate.createdAt = new Date(voucherDate)
-  }
-
-  await prisma.invoice.updateMany({ 
-      where: { id, userId, totalAmount: 0 }, 
-      data: dataToUpdate 
-  })
+  const dataToUpdate: any = { paidAmount: Number(amount), discountAmount: Number(discount || 0) }
+  if (voucherDate) dataToUpdate.createdAt = new Date(voucherDate)
+  await prisma.invoice.updateMany({ where: { id, userId, totalAmount: 0 }, data: dataToUpdate })
   revalidateAll()
 }

@@ -9,7 +9,6 @@ export default function CustomerHistorySearch({ customers, currentFrom, currentT
     const [search, setSearch] = useState('')
     const [isOpen, setIsOpen] = useState(false)
 
-    // Filters by Name, ID, Phone, or Address
     const filtered = customers.filter(c =>
         c.name.toLowerCase().includes(search.toLowerCase()) ||
         c.id.toLowerCase().includes(search.toLowerCase()) ||
@@ -20,8 +19,6 @@ export default function CustomerHistorySearch({ customers, currentFrom, currentT
     const handleSelect = (id: string) => {
         setIsOpen(false)
         setSearch('')
-        
-        // Pushes the selection to the URL safely, keeping your date filters intact
         let url = `/ledger?view=customer_history&customerId=${id}`
         if (currentFrom) url += `&from=${currentFrom}`
         if (currentTo) url += `&to=${currentTo}`
@@ -55,7 +52,7 @@ export default function CustomerHistorySearch({ customers, currentFrom, currentT
                         {filtered.map(c => (
                             <div key={c.id} onClick={() => handleSelect(c.id)} className="p-3 cursor-pointer rounded-lg hover:bg-blue-50 border-b border-slate-100 last:border-0 transition flex flex-col md:flex-row md:items-center justify-between gap-1">
                                 <div>
-                                    <p className="font-black text-slate-900 uppercase tracking-tight">{c.name} <span className="text-[10px] text-slate-400 font-mono ml-2 lowercase bg-slate-100 px-1 py-0.5 rounded">#{c.id.slice(-6)}</span></p>
+                                    <p className="font-black text-slate-900 uppercase tracking-tight">{c.name} <span className="text-[10px] text-slate-400 font-mono ml-2 lowercase bg-slate-100 px-1 py-0.5 rounded">#{c.id}</span></p>
                                     <p className="text-[11px] text-slate-500 font-bold mt-0.5 uppercase tracking-widest">{c.phone || 'No Phone'} | {c.address || 'No Address'}</p>
                                 </div>
                                 <div className="text-right">

@@ -1,263 +1,128 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { saveProduct, deleteProduct, bulkUpdateProductPrices } from '@/actions/actions'
-import { Edit, Trash2, Search, Zap, Save } from 'lucide-react'
+import { useState } from 'react'
+import { saveProduct, deleteProduct } from '@/actions/actions'
 
 export default function ProductManager({ products, categories }: { products: any[], categories: any[] }) {
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  
-  // Quick Price Edit States (Both Cost and Selling Price)
-  const [bulkEditMode, setBulkEditMode] = useState(false)
-  const [draftPrices, setDraftPrices] = useState<Record<string, number>>({})
-  const [draftCosts, setDraftCosts] = useState<Record<string, number>>({})
+  const [formData, setFormData] = useState({ id: '', name: '', category: '', unit: 'Bags', cost: 0, price: 0 })
+  const [isEditing, setIsEditing] = useState(false)
+  const [originalId, setOriginalId] = useState('')
 
-  const filteredProducts = products.filter(p => {
-    const q = searchQuery.toLowerCase()
-    return (
-      p.id.toLowerCase().includes(q) ||
-      p.name.toLowerCase().includes(q) ||
-      p.category.toLowerCase().includes(q)
-    )
-  })
+  const handleEdit = (prod: any) => {
+    setFormData({ id: prod.id, name: prod.name, category: prod.category || '', unit: prod.unit || 'Bags', cost: prod.cost, price: prod.price })
+    setOriginalId(prod.id)
+    setIsEditing(true)
+  }
 
-  // Keyboard Shortcut Engine (Shift + S)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.shiftKey && e.key.toLowerCase() === 's') {
-            if (bulkEditMode) {
-                e.preventDefault();
-                handleSaveBulkPrices();
-            }
+  const handleDelete = async (id: string) => {
+    if(confirm('Are you sure you want to delete this product?')) {
+        const res = await deleteProduct(id)
+        if (res?.error) {
+            alert(res.error) // ALERTS THE FOREIGN KEY ERROR
         }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [bulkEditMode, draftCosts, draftPrices, products]);
-
-  // Saves Both Updates
-  const handleSaveBulkPrices = async () => {
-    const modifiedIds = new Set([...Object.keys(draftCosts), ...Object.keys(draftPrices)])
-    
-    const updates = Array.from(modifiedIds).map(id => {
-      const p = products.find(prod => prod.id === id)
-      return {
-        id,
-        cost: draftCosts[id] !== undefined ? draftCosts[id] : (p?.cost || 0),
-        price: draftPrices[id] !== undefined ? draftPrices[id] : (p?.price || 0)
-      }
-    })
-
-    if (updates.length > 0) {
-      await bulkUpdateProductPrices(updates)
-      alert('All prices & costs updated successfully!')
     }
-    
-    setBulkEditMode(false)
-    setDraftPrices({})
-    setDraftCosts({})
   }
 
   return (
-    <div className="max-w-5xl mx-auto bg-white p-6 md:p-10 rounded-3xl shadow-lg border border-slate-200">
-      <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight mb-8">
-        {editingId ? 'Edit Product' : 'Add New Product'}
-      </h2>
+    <div className="max-w-6xl mx-auto mt-10">
+      <div className="p-6 md:p-8 bg-white rounded-3xl shadow-xl border border-slate-200 mb-10">
+        <h1 className="text-2xl font-black mb-6 text-slate-900 uppercase tracking-tight">
+          {isEditing ? 'Edit Product' : 'Add New Product'}
+        </h1>
+        
+        <form action={async (data) => { 
+            const res = await saveProduct(data); 
+            if (res?.error) {
+                alert(res.error)
+            } else {
+                alert('Saved successfully!'); 
+                setFormData({id:'', name:'', category:'', unit:'Bags', cost:0, price:0}); 
+                setIsEditing(false); 
+                setOriginalId('');
+            }
+        }} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          <input type="hidden" name="originalId" value={originalId} />
 
-      <form action={saveProduct} className="flex flex-col gap-5 mb-12" onSubmit={() => setTimeout(() => setEditingId(null), 100)}>
-        
-        {/* Sends the OLD ID to the backend silently so we know if the user changed the Primary Key */}
-        {editingId && <input type="hidden" name="originalId" value={editingId} />}
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Product ID</label>
+            <input type="text" name="id" value={formData.id} onChange={(e) => setFormData({...formData, id: e.target.value})}
+              readOnly={isEditing} placeholder="e.g. PRD-001"
+              className={`w-full rounded-xl border-2 p-4 font-bold outline-none transition uppercase ${isEditing ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-600'}`}
+            />
+            {isEditing && <p className="text-[10px] text-red-500 font-bold mt-1">ID cannot be changed during editing.</p>}
+          </div>
 
-        <input 
-            type="text" 
-            name="id" 
-            placeholder="Product Code / ID" 
-            defaultValue={editingId || ''} 
-            className="p-4 border-2 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600 placeholder:text-slate-400 bg-slate-50" 
-            required 
-        />
-        
-        <input 
-            type="text" 
-            name="name" 
-            placeholder="Product Name" 
-            defaultValue={editingId ? products.find(p => p.id === editingId)?.name : ''}
-            className="p-4 border-2 bg-slate-50 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600 placeholder:text-slate-400" 
-            required 
-        />
-        
-        <div className="flex flex-col md:flex-row gap-4 w-full">
-            <select 
-                name="category" 
-                defaultValue={editingId ? products.find(p => p.id === editingId)?.category : ''}
-                className="flex-[2] p-4 border-2 bg-slate-50 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600" 
-                required
-            >
-              <option value="" disabled>Select Category</option>
+          <div className="md:col-span-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Product Name</label>
+            <input type="text" name="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required placeholder="e.g. Mash Daal"
+              className="w-full rounded-xl border-2 bg-slate-50 border-slate-200 p-4 font-bold text-slate-900 outline-none focus:border-blue-600 uppercase" />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Category</label>
+            <select name="category" value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})}
+              className="w-full rounded-xl border-2 bg-slate-50 border-slate-200 p-4 font-bold text-slate-900 outline-none focus:border-blue-600 uppercase">
+              <option value="">No Category</option>
               {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
+          </div>
 
-            <select 
-                name="unit" 
-                defaultValue={editingId ? products.find(p => p.id === editingId)?.unit : 'Bags'} 
-                className="flex-1 p-4 border-2 bg-slate-50 rounded-xl font-black text-slate-900 outline-none focus:border-blue-600"
-            >
-              <option value="Bags">Bags (بوریاں)</option>
-              <option value="Kgs">Kgs (کلو)</option>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Unit</label>
+            <select name="unit" value={formData.unit} onChange={(e) => setFormData({...formData, unit: e.target.value})}
+              className="w-full rounded-xl border-2 bg-slate-50 border-slate-200 p-4 font-bold text-slate-900 outline-none focus:border-blue-600 uppercase">
+              <option value="Bags">Bags</option>
+              <option value="Kgs">Kgs</option>
             </select>
-        </div>
-        
-        <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-2 mb-2 block">Cost Price (Purchase)</label>
-                <input type="number" name="cost" placeholder="0" defaultValue={editingId ? products.find(p => p.id === editingId)?.cost : ''}
-                    className="w-full p-4 border-2 bg-slate-50 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600 placeholder:text-slate-400" />
+          </div>
+
+          <div className="md:col-span-3 grid grid-cols-2 gap-6 bg-emerald-50 p-4 rounded-xl border border-emerald-200">
+            <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-emerald-800 mb-2">Cost Price</label>
+                <input type="number" name="cost" value={formData.cost} onChange={(e) => setFormData({...formData, cost: Number(e.target.value)})} placeholder="0"
+                className="w-full rounded-xl border-2 bg-white border-emerald-300 p-4 font-black text-slate-900 outline-none focus:border-emerald-600 text-lg" />
             </div>
-            <div className="flex-1">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-2 mb-2 block">Default Selling Price</label>
-                <input type="number" name="price" placeholder="0" defaultValue={editingId ? products.find(p => p.id === editingId)?.price : ''}
-                    className="w-full p-4 border-2 bg-slate-50 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600 placeholder:text-slate-400" />
+            <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-emerald-800 mb-2">Selling Price</label>
+                <input type="number" name="price" value={formData.price} onChange={(e) => setFormData({...formData, price: Number(e.target.value)})} placeholder="0"
+                className="w-full rounded-xl border-2 bg-white border-emerald-300 p-4 font-black text-emerald-700 outline-none focus:border-emerald-600 text-lg" />
             </div>
-        </div>
+          </div>
 
-        <div className="flex flex-col md:flex-row gap-4 mt-4">
-            <button type="submit" className="flex-1 bg-slate-900 text-white font-black uppercase tracking-widest p-5 rounded-xl hover:bg-black transition shadow-xl">
-                Save Product
-            </button>
-            {editingId && (
-                <button type="button" onClick={() => setEditingId(null)} className="flex-1 bg-slate-200 text-slate-700 font-black uppercase tracking-widest p-5 rounded-xl hover:bg-slate-300 transition">
-                    Cancel Edit
-                </button>
-            )}
-        </div>
-      </form>
+          <div className="md:col-span-3 mt-4 flex gap-4">
+              <button type="submit" className="flex-1 py-4 px-4 rounded-xl shadow-lg font-black uppercase tracking-widest text-white bg-slate-900 hover:bg-black transition">
+                {isEditing ? 'Update Product' : 'Save Product'}
+              </button>
+              {isEditing && (
+                  <button type="button" onClick={() => { setIsEditing(false); setFormData({id:'', name:'', category:'', unit:'Bags', cost:0, price:0}); }} className="px-8 rounded-xl font-black uppercase tracking-widest text-slate-600 bg-slate-200 hover:bg-slate-300 transition">Cancel</button>
+              )}
+          </div>
+        </form>
+      </div>
 
-      <div className="border-t-2 border-slate-100 pt-8">
-        
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
-            <h2 className="text-xl font-black text-slate-900 uppercase">Existing Products</h2>
-            
-            <div className="flex flex-col md:flex-row items-center gap-4 w-full xl:w-auto">
-                <div className="relative w-full md:w-64">
-                    <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
-                        type="text" 
-                        placeholder="Search products..." 
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 p-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600 transition"
-                    />
-                </div>
-
-                <div className="flex gap-2 w-full md:w-auto">
-                    <button 
-                        onClick={() => { setBulkEditMode(!bulkEditMode); setDraftPrices({}); setDraftCosts({}); }} 
-                        className={`flex items-center justify-center gap-2 w-full md:w-auto px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition ${bulkEditMode ? 'bg-slate-900 text-white shadow-lg' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'}`}
-                    >
-                        <Zap size={14} /> {bulkEditMode ? 'Cancel Edit' : 'Quick Price Edit'}
-                    </button>
-
-                    {bulkEditMode && (
-                        <button 
-                            onClick={handleSaveBulkPrices} 
-                            style={{ backgroundColor: '#059669', color: 'white' }}
-                            className="flex flex-col items-center justify-center w-full md:w-auto px-6 py-2 rounded-xl font-black uppercase tracking-widest text-xs hover:opacity-80 transition shadow-lg animate-fade-in"
-                        >
-                            <span className="flex items-center gap-2"><Save size={14} /> Save Prices</span>
-                            <span className="text-[9px] opacity-70 block mt-0.5">Shortcut: Shift + S</span>
-                        </button>
-                    )}
-                </div>
-            </div>
-        </div>
-
-        <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px] text-left border-collapse">
-            <thead>
-                <tr className="border-b-2 border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    <th className="pb-4 px-2">Code / ID</th>
-                    <th className="pb-4 px-2">Name</th>
-                    <th className="pb-4 px-2">Category</th>
-                    <th className={`pb-4 px-2 ${bulkEditMode ? 'text-orange-700 bg-orange-50 rounded-tl-lg border-b-4 border-orange-400' : ''}`}>
-                        {bulkEditMode ? 'EDIT COST PRICE' : 'Cost Price'}
-                    </th>
-                    <th className={`pb-4 px-2 ${bulkEditMode ? 'text-emerald-700 bg-emerald-50 rounded-tr-lg border-b-4 border-emerald-400' : ''}`}>
-                        {bulkEditMode ? 'EDIT SELLING PRICE' : 'Selling Price'}
-                    </th>
-                    <th className="pb-4 px-2 text-right">Actions</th>
-                </tr>
-            </thead>
-            <tbody className="text-sm font-bold text-slate-700 divide-y divide-slate-50">
-                {filteredProducts.map((p, index) => (
-                <tr key={p.id} className="hover:bg-slate-50 transition">
-                    <td className="py-5 px-2 text-slate-400 font-mono">{p.id}</td>
-                    <td className="py-5 px-2 uppercase text-slate-900">
-                        {p.name} <span className="text-[9px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded ml-2">{p.unit || 'Bags'}</span>
-                    </td>
-                    <td className="py-5 px-2">{p.category}</td>
-                    
-                    {/* ZIG-ZAG: COST COLUMN */}
-                    <td className={`py-3 px-2 ${bulkEditMode ? 'bg-orange-50' : ''}`}>
-                        {bulkEditMode ? (
-                            <input
-                                id={`cost-input-${index}`}
-                                type="number"
-                                className="w-24 p-2 text-left border-2 border-orange-300 rounded-lg font-black text-slate-900 outline-none focus:border-orange-600 bg-white shadow-sm"
-                                value={draftCosts[p.id] !== undefined ? draftCosts[p.id] : (p.cost || 0)}
-                                onChange={(e) => setDraftCosts({...draftCosts, [p.id]: Number(e.target.value)})}
-                                onFocus={(e) => e.target.select()}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        e.preventDefault();
-                                        document.getElementById(`price-input-${index}`)?.focus(); 
-                                    }
-                                }}
-                            />
-                        ) : (
-                            <span className="text-orange-600 font-black">PKR {p.cost || 0}</span>
-                        )}
-                    </td>
-
-                    {/* ZIG-ZAG: SELLING PRICE COLUMN */}
-                    <td className={`py-3 px-2 ${bulkEditMode ? 'bg-emerald-50' : ''}`}>
-                        {bulkEditMode ? (
-                            <input
-                                id={`price-input-${index}`}
-                                type="number"
-                                className="w-24 p-2 text-left border-2 border-emerald-300 rounded-lg font-black text-slate-900 outline-none focus:border-emerald-600 bg-white shadow-sm"
-                                value={draftPrices[p.id] !== undefined ? draftPrices[p.id] : (p.price || 0)}
-                                onChange={(e) => setDraftPrices({...draftPrices, [p.id]: Number(e.target.value)})}
-                                onFocus={(e) => e.target.select()}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        e.preventDefault();
-                                        const nextField = document.getElementById(`cost-input-${index + 1}`);
-                                        if (nextField) nextField.focus(); 
-                                        else handleSaveBulkPrices(); 
-                                    }
-                                }}
-                            />
-                        ) : (
-                            <span className="text-emerald-600 font-black">PKR {p.price || 0}</span>
-                        )}
-                    </td>
-
-                    <td className="py-5 px-2 flex justify-end gap-3">
-                        <button onClick={() => { setEditingId(p.id); window.scrollTo({ top: 0, behavior: 'smooth' }) }} className="p-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition" disabled={bulkEditMode} title="Edit"><Edit size={18} /></button>
-                        <form action={deleteProduct.bind(null, p.id)}>
-                            <button className="p-2 bg-red-50 text-red-600 rounded hover:bg-red-100 transition" disabled={bulkEditMode} title="Delete"><Trash2 size={18} /></button>
-                        </form>
-                    </td>
-                </tr>
-                ))}
-                {filteredProducts.length === 0 && (
-                    <tr><td colSpan={6} className="py-12 text-center text-slate-400 font-bold">No products found matching "{searchQuery}"</td></tr>
-                )}
-            </tbody>
-            </table>
-        </div>
+      <div className="bg-white rounded-3xl shadow-sm overflow-hidden border border-slate-200">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b-2 border-slate-200">
+            <tr><th className="p-4">ID</th><th className="p-4">Name</th><th className="p-4">Category</th><th className="p-4 text-center">Unit</th><th className="p-4 text-right">Cost</th><th className="p-4 text-right">Price</th><th className="p-4 text-right">Actions</th></tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-sm font-bold text-slate-700">
+            {products.map((p) => (
+              <tr key={p.id} className="hover:bg-slate-50 transition">
+                <td className="p-4 font-mono text-xs text-slate-400 uppercase">{p.id}</td>
+                <td className="p-4 uppercase text-slate-900">{p.name}</td>
+                <td className="p-4 uppercase">{p.category || '-'}</td>
+                <td className="p-4 text-center uppercase text-xs">{p.unit || 'BAGS'}</td>
+                <td className="p-4 text-right text-red-600">{p.cost.toLocaleString()}</td>
+                <td className="p-4 text-right text-emerald-600 font-black">{p.price.toLocaleString()}</td>
+                <td className="p-4 text-right">
+                  <button onClick={() => handleEdit(p)} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded mr-2 hover:bg-blue-100 uppercase text-[10px] font-black tracking-widest transition">Edit</button>
+                  <button onClick={() => handleDelete(p.id)} className="px-3 py-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100 uppercase text-[10px] font-black tracking-widest transition">Delete</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )

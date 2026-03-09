@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Printer, Trash2, Edit, Search, CheckCircle, Zap, Save, MessageCircle, XCircle, Send, PlayCircle, Eye } from 'lucide-react'
-import { bulkDeleteInvoices, bulkMarkAsPaid, deleteInvoice, bulkUpdatePayments, bulkMakeActive } from '@/actions/actions'
+import { Printer, Trash2, Edit, Search, Zap, Save, MessageCircle, XCircle, Send, PlayCircle, Eye } from 'lucide-react'
+import { deleteInvoice, bulkUpdatePayments, bulkMakeActive } from '@/actions/actions'
 
 export default function InvoiceList({ invoices, categories, isHoldView = false }: { invoices: any[], categories: any[], isHoldView?: boolean }) {
   const [search, setSearch] = useState('')
@@ -14,7 +14,6 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [recoveryMode, setRecoveryMode] = useState(false)
   
-  // States for Recovery Zig-Zag editing
   const [draftPayments, setDraftPayments] = useState<Record<string, number>>({})
   const [draftDiscounts, setDraftDiscounts] = useState<Record<string, number>>({})
 
@@ -62,13 +61,15 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
     const closing = Number(inv.customerCurrentBalance || 0);
     const previous = closing - (inv.isReturn ? -invoiceTotal : (invoiceTotal - paid));
 
+    const displayId = /^\d+$/.test(inv.id) ? inv.id : inv.id.slice(-6).toUpperCase();
+
     let itemsText = inv.items.length > 0 
         ? inv.items.map((item: any) => `- ${item.quantity}x ${item.product?.name || 'Item'} @ ${item.price} = ${(item.quantity * item.price).toLocaleString()}`).join('\n')
         : "No items";
 
     const text = `*FAHAD TRADERS*\n` +
-                 `${isHoldView ? 'Quotation' : 'Invoice'} #: ${inv.id.slice(-6).toUpperCase()}\n` +
-                 `Date: ${new Date(inv.createdAt).toLocaleDateString()}\n` +
+                 `${isHoldView ? 'Quotation' : 'Invoice'} #: ${displayId}\n` +
+                 `Date: ${new Date(inv.createdAt).toLocaleDateString('en-GB')}\n` +
                  `------------------------\n` +
                  `*Items:*\n${itemsText}\n` +
                  `------------------------\n` +
@@ -103,11 +104,8 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
     window.open(`/print/bulk?ids=${idsString}`, '_blank');
   }
 
-  const handleBulkDelete = async () => { if(confirm(`WARNING: Are you sure you want to delete ${selectedIds.length} records?`)) { await bulkDeleteInvoices(selectedIds); setSelectedIds([]) } }
-  const handleBulkPay = async () => { if(confirm(`Mark ${selectedIds.length} invoices as fully paid?`)) { await bulkMarkAsPaid(selectedIds); setSelectedIds([]) } }
   const handleBulkActive = async () => { if(confirm(`Convert ${selectedIds.length} quotations to active invoices?`)) { await bulkMakeActive(selectedIds); setSelectedIds([]) } }
   
-  // ZIG-ZAG UPDATER SAVER
   const handleSaveRecovery = async () => {
     const updates = filteredInvoices.filter(i => !i.isReturn).map(inv => ({
         id: inv.id,
@@ -184,14 +182,9 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
                   <div className="flex gap-3">
                       <button onClick={handleBulkWhatsApp} className="flex items-center gap-2 bg-green-500 text-white border border-green-400 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[10px] md:text-xs font-black uppercase hover:bg-green-600 transition"><MessageCircle size={14}/> WhatsApp</button>
                       <button onClick={handleBulkPrint} className="flex items-center gap-2 bg-indigo-500 text-white border border-indigo-400 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[10px] md:text-xs font-black uppercase hover:bg-indigo-600 transition"><Printer size={14}/> Bulk Print</button>
-                      
-                      {isHoldView ? (
+                      {isHoldView && (
                           <button onClick={handleBulkActive} className="flex items-center gap-2 bg-white text-orange-600 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[10px] md:text-xs font-black uppercase hover:bg-orange-50 transition"><PlayCircle size={14}/> Make Active</button>
-                      ) : (
-                          <button onClick={handleBulkPay} className="flex items-center gap-2 bg-white text-blue-700 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[10px] md:text-xs font-black uppercase hover:bg-blue-50 transition"><CheckCircle size={14}/> Mark Paid</button>
                       )}
-
-                      <button onClick={handleBulkDelete} className="flex items-center gap-2 bg-red-600 text-white border border-red-400 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[10px] md:text-xs font-black uppercase hover:bg-red-700 transition"><Trash2 size={14}/> Delete</button>
                   </div>
               </div>
           )}
@@ -217,11 +210,12 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
               <tr key={inv.id} className={`transition ${inv.isReturn ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'}`}>
                 <td className="p-4 text-center"><input type="checkbox" checked={selectedIds.includes(inv.id)} onChange={() => handleSelect(inv.id)} disabled={recoveryMode || waQueue.length > 0} className="w-4 h-4 cursor-pointer accent-blue-600 disabled:opacity-50"/></td>
                 <td className="p-4 font-mono text-xs">
-                    {inv.id.slice(-6).toUpperCase()} 
+                    {/* Clean 00001 ID formatting */}
+                    {/^\d+$/.test(inv.id) ? inv.id : inv.id.slice(-6).toUpperCase()} 
                     {inv.isReturn && <span className="ml-2 bg-red-200 text-red-800 px-2 py-0.5 rounded text-[9px]">RETURN</span>}
                     {isHoldView && <span className="ml-2 bg-orange-200 text-orange-800 px-2 py-0.5 rounded font-black text-[9px]">QUOTATION</span>}
                 </td>
-                <td className="p-4 text-xs text-slate-500">{new Date(inv.createdAt).toLocaleDateString()} <br/>{new Date(inv.createdAt).toLocaleTimeString()}</td>
+                <td className="p-4 text-xs text-slate-500">{new Date(inv.createdAt).toLocaleDateString('en-GB', {timeZone: 'Asia/Karachi'})} <br/>{new Date(inv.createdAt).toLocaleTimeString('en-US', {timeZone: 'Asia/Karachi'})}</td>
                 <td className="p-4 uppercase text-slate-900">
                     <div className="font-black">{inv.customer.name}</div>
                     <div className="text-[9px] text-slate-400 font-mono lowercase mt-0.5">ID: {inv.customer.id}</div>
@@ -229,7 +223,6 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
                 <td className="p-4 text-xs text-center">{inv.customer.category || '---'}</td>
                 <td className={`p-4 text-right font-black ${inv.isReturn ? 'text-red-600' : 'text-blue-700'}`}>PKR {inv.totalAmount.toLocaleString()}</td>
                 
-                {/* ZIG-ZAG: DISCOUNT INPUT */}
                 <td className={`p-4 text-right ${recoveryMode && !inv.isReturn ? 'bg-orange-50' : ''}`}>
                     {recoveryMode && !inv.isReturn ? (
                         <input 
@@ -242,7 +235,7 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                     e.preventDefault();
-                                    document.getElementById(`payment-input-${index}`)?.focus(); // JUMP TO PAID BOX (SAME ROW)
+                                    document.getElementById(`payment-input-${index}`)?.focus(); 
                                 }
                             }}
                         />
@@ -251,7 +244,6 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
                     )}
                 </td>
                 
-                {/* ZIG-ZAG: PAID INPUT */}
                 <td className={`p-4 text-right ${recoveryMode && !inv.isReturn ? 'bg-emerald-50' : ''}`}>
                     {recoveryMode && !inv.isReturn ? (
                         <input 
@@ -265,7 +257,7 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
                                 if (e.key === 'Enter') {
                                     e.preventDefault();
                                     const nextField = document.getElementById(`discount-input-${index + 1}`);
-                                    if (nextField) nextField.focus(); // JUMP TO DISCOUNT BOX (NEXT ROW)
+                                    if (nextField) nextField.focus(); 
                                     else handleSaveRecovery(); 
                                 }
                             }}
