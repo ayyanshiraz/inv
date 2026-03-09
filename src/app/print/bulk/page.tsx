@@ -56,7 +56,7 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
               
               .invoice-page { 
                   width: 148mm !important; 
-                  height: 188mm !important; /* CRITICAL: 188mm is safely inside the hardware printable area */
+                  height: 188mm !important; 
                   max-height: 188mm !important;
                   margin: 0 auto !important; 
                   padding: 6mm !important; 
@@ -66,7 +66,7 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
                   page-break-inside: avoid !important;
                   display: block !important;
                   position: relative !important;
-                  overflow: hidden !important; /* CRITICAL: Chops off invisible sub-pixels */
+                  overflow: hidden !important; 
               }
               .invoice-page:last-child, .invoice-page:last-of-type {
                   page-break-after: avoid !important;
@@ -102,8 +102,9 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
                     <div key={invoice.id} className="invoice-page bg-white w-[148mm] h-[188mm] mx-auto p-[6mm] shadow-2xl relative text-black box-border block mb-8 print:mb-0 print:shadow-none">
                         
                         <div className="flex justify-between items-center mb-4 shrink-0">
-                            <div className="w-16 h-16 overflow-hidden flex items-center justify-center shrink-0 bg-white">
-                                <img src="/logo.jpeg" alt="Logo" className="w-[135%] h-[135%] max-w-none object-cover object-center" />
+                            <div className="w-16 h-16 flex items-center justify-center shrink-0 bg-white">
+                                {/* UNFORMATTED LOGO.PNG */}
+                                <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
                             </div>
                             <div className="text-center flex-1 px-2">
                                 <p className="text-[12px] urdu-text mb-0">کاروبار حلال - سود حرام</p>
