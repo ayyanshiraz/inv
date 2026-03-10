@@ -23,6 +23,17 @@ export default function CustomerManager({ customers = [], categories = [] }: { c
     }
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>, nextFieldId: string) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        if (nextFieldId === 'submit') {
+            document.getElementById('cust-submit-btn')?.click();
+        } else {
+            document.getElementById(nextFieldId)?.focus();
+        }
+    }
+  }
+
   return (
     <div className="max-w-6xl mx-auto mt-10">
       <div className="p-6 md:p-8 bg-white rounded-3xl shadow-xl border border-slate-200 mb-10">
@@ -39,6 +50,7 @@ export default function CustomerManager({ customers = [], categories = [] }: { c
                 setFormData({id:'', name:'', phone:'', address:'', category:'', openingBalance:0}); 
                 setIsEditing(false); 
                 setOriginalId('');
+                document.getElementById('cust-id')?.focus();
             }
         }} className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
@@ -46,28 +58,30 @@ export default function CustomerManager({ customers = [], categories = [] }: { c
 
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Primary ID</label>
-            <input type="text" name="id" value={formData.id} onChange={(e) => setFormData({...formData, id: e.target.value})}
-              readOnly={isEditing} placeholder="e.g. CUST-001"
-              className={`w-full rounded-xl border-2 p-4 font-bold outline-none transition uppercase ${isEditing ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-600'}`}
+            <input id="cust-id" type="text" name="id" value={formData.id} onChange={(e) => setFormData({...formData, id: e.target.value})}
+              onKeyDown={(e) => handleKeyDown(e, 'cust-name')} placeholder="e.g. CUST-001"
+              className="w-full rounded-xl border-2 bg-slate-50 border-slate-200 p-4 font-bold text-slate-900 outline-none focus:border-blue-600 uppercase"
             />
-            {isEditing && <p className="text-[10px] text-red-500 font-bold mt-1">ID cannot be changed during editing to protect ledger history.</p>}
           </div>
 
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Customer Name</label>
-            <input type="text" name="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required placeholder="e.g. Ali Khan"
+            <input id="cust-name" type="text" name="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} 
+              onKeyDown={(e) => handleKeyDown(e, 'cust-phone')} required placeholder="e.g. Ali Khan"
               className="w-full rounded-xl border-2 bg-slate-50 border-slate-200 p-4 font-bold text-slate-900 outline-none focus:border-blue-600 uppercase" />
           </div>
 
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Phone Number</label>
-            <input type="text" name="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} placeholder="e.g. 0300-1234567"
+            <input id="cust-phone" type="text" name="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} 
+              onKeyDown={(e) => handleKeyDown(e, 'cust-category')} placeholder="e.g. 0300-1234567"
               className="w-full rounded-xl border-2 bg-slate-50 border-slate-200 p-4 font-bold text-slate-900 outline-none focus:border-blue-600" />
           </div>
 
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Category</label>
-            <select name="category" value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})}
+            <select id="cust-category" name="category" value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})}
+              onKeyDown={(e) => handleKeyDown(e, 'cust-address')}
               className="w-full rounded-xl border-2 bg-slate-50 border-slate-200 p-4 font-bold text-slate-900 outline-none focus:border-blue-600 uppercase">
               <option value="">No Category</option>
               {categories && categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
@@ -76,22 +90,24 @@ export default function CustomerManager({ customers = [], categories = [] }: { c
 
           <div className="md:col-span-2">
             <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Address</label>
-            <input type="text" name="address" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} placeholder="Customer Address"
+            <input id="cust-address" type="text" name="address" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} 
+              onKeyDown={(e) => handleKeyDown(e, 'cust-balance')} placeholder="Customer Address"
               className="w-full rounded-xl border-2 bg-slate-50 border-slate-200 p-4 font-bold text-slate-900 outline-none focus:border-blue-600" />
           </div>
 
           <div className="md:col-span-2 bg-blue-50 p-4 rounded-xl border border-blue-200">
             <label className="block text-[10px] font-black uppercase tracking-widest text-blue-800 mb-2">Opening Balance (PKR)</label>
-            <input type="number" name="openingBalance" value={formData.openingBalance} onChange={(e) => setFormData({...formData, openingBalance: e.target.value === '' ? '' : Number(e.target.value)})} placeholder="0"
+            <input id="cust-balance" type="number" name="openingBalance" value={formData.openingBalance} onChange={(e) => setFormData({...formData, openingBalance: e.target.value === '' ? '' : Number(e.target.value)})} 
+              onKeyDown={(e) => handleKeyDown(e, 'submit')} placeholder="0"
               className="w-full rounded-xl border-2 bg-white border-blue-300 p-4 font-black text-blue-900 outline-none focus:border-blue-600 text-lg" />
           </div>
 
           <div className="md:col-span-2 mt-4 flex gap-4">
-              <button type="submit" className="flex-1 py-4 px-4 rounded-xl shadow-lg font-black uppercase tracking-widest text-white bg-slate-900 hover:bg-black transition">
+              <button id="cust-submit-btn" type="submit" className="flex-1 py-4 px-4 rounded-xl shadow-lg font-black uppercase tracking-widest text-white bg-slate-900 hover:bg-black transition">
                 {isEditing ? 'Update Customer' : 'Save Customer'}
               </button>
               {isEditing && (
-                  <button type="button" onClick={() => { setIsEditing(false); setFormData({id:'', name:'', phone:'', address:'', category:'', openingBalance:0}); }} className="px-8 rounded-xl font-black uppercase tracking-widest text-slate-600 bg-slate-200 hover:bg-slate-300 transition">Cancel</button>
+                  <button type="button" onClick={() => { setIsEditing(false); setFormData({id:'', name:'', phone:'', address:'', category:'', openingBalance:0}); setOriginalId(''); }} className="px-8 rounded-xl font-black uppercase tracking-widest text-slate-600 bg-slate-200 hover:bg-slate-300 transition">Cancel</button>
               )}
           </div>
         </form>

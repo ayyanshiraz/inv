@@ -10,7 +10,6 @@ const getPKTDateString = () => {
     return `${pkt.getFullYear()}-${String(pkt.getMonth() + 1).padStart(2, '0')}-${String(pkt.getDate()).padStart(2, '0')}`;
 };
 
-// Strict format for the un-focused state
 const formatDDMMYYYY = (dateStr: string) => {
     if (!dateStr) return '';
     const parts = dateStr.split('-');
@@ -26,7 +25,6 @@ export default function VoucherForm({ customers }: { customers: any[] }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [voucherDate, setVoucherDate] = useState(getPKTDateString())
-  const [dateFocus, setDateFocus] = useState(false)
 
   const filteredCustomers = (index: number) => {
       const query = (rows[index]?.search || '').toLowerCase();
@@ -49,9 +47,7 @@ export default function VoucherForm({ customers }: { customers: any[] }) {
       setTimeout(() => document.getElementById(`discount-${index}`)?.focus(), 50)
   }
 
-  const addRow = () => {
-      setRows([...rows, { id: Date.now().toString(), customerId: '', search: '', balance: 0, amount: '', discount: '' }])
-  }
+  const addRow = () => setRows([...rows, { id: Date.now().toString(), customerId: '', search: '', balance: 0, amount: '', discount: '' }])
 
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault()
@@ -61,23 +57,17 @@ export default function VoucherForm({ customers }: { customers: any[] }) {
       setIsSubmitting(true)
       
       const todayStr = getPKTDateString();
-      let finalVoucherDate;
-      if (voucherDate === todayStr) {
-          finalVoucherDate = new Date().toISOString();
-      } else {
-          finalVoucherDate = new Date(`${voucherDate}T12:00:00+05:00`).toISOString();
-      }
-
+      const finalVoucherDate = voucherDate === todayStr ? new Date().toISOString() : new Date(`${voucherDate}T12:00:00+05:00`).toISOString();
       const data = validRows.map(r => ({ customerId: r.customerId, amount: Number(r.amount) || 0, discount: Number(r.discount) || 0 }))
       
       try {
-          await createVouchers(data, finalVoucherDate)
-          alert("Vouchers recorded successfully!")
-          router.push('/receivables')
-      } catch (err) {
-          alert("Failed to record vouchers.")
-          setIsSubmitting(false)
-      }
+          await createVouchers(data, finalVoucherDate); alert("Vouchers recorded successfully!"); router.push('/receivables');
+      } catch (err) { alert("Failed to record vouchers."); setIsSubmitting(false); }
+  }
+
+  const openDatePicker = (id: string) => {
+      const el = document.getElementById(id) as any;
+      if (el && typeof el.showPicker === 'function') { try { el.showPicker() } catch(e) { el.focus() } } else if (el) { el.focus() }
   }
 
   return (
@@ -87,24 +77,15 @@ export default function VoucherForm({ customers }: { customers: any[] }) {
         <div className="flex flex-wrap items-center gap-6 mb-6 p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700">
             <div className="flex items-center gap-3">
                 <span className="font-black text-slate-900">Date:</span>
-                
-                {/* THE FOCUS SWAP FIX */}
-                <input 
-                    type={dateFocus ? "date" : "text"} 
-                    value={dateFocus ? voucherDate : formatDDMMYYYY(voucherDate)} 
-                    onChange={(e) => setVoucherDate(e.target.value)} 
-                    onFocus={() => setDateFocus(true)}
-                    onBlur={() => setDateFocus(false)}
-                    className="bg-white border border-slate-300 px-3 py-1.5 rounded outline-none cursor-pointer font-bold w-36 text-center tracking-widest" 
-                />
-
+                <div onClick={() => openDatePicker('voucher-date')} className="w-36 h-9 flex items-center justify-center bg-white border border-slate-300 rounded cursor-pointer hover:bg-slate-50 hover:border-blue-400 transition tracking-widest relative overflow-hidden text-slate-900">
+                    {formatDDMMYYYY(voucherDate)}
+                    <input id="voucher-date" type="date" value={voucherDate} onChange={(e) => setVoucherDate(e.target.value)} className="absolute w-0 h-0 opacity-0" />
+                </div>
             </div>
             <div className="flex items-center gap-3">
                 <span className="font-black text-slate-900">MOP:</span>
                 <select className="bg-white border border-slate-300 px-3 py-1.5 rounded outline-none cursor-pointer">
-                    <option>Cash</option>
-                    <option>Bank Transfer</option>
-                    <option>Cheque</option>
+                    <option>Cash</option><option>Bank Transfer</option><option>Cheque</option>
                 </select>
             </div>
         </div>
@@ -112,75 +93,31 @@ export default function VoucherForm({ customers }: { customers: any[] }) {
         <div className="w-full relative z-40 border rounded-xl border-slate-300 bg-white">
             <table className="w-full border-collapse text-sm">
                 <thead className="bg-slate-100 border-b border-slate-300 text-[10px] font-black uppercase tracking-widest text-slate-600">
-                    <tr>
-                        <th className="p-3 border-r border-slate-300 w-12 text-center">Sr.</th>
-                        <th className="p-3 border-r border-slate-300 text-left">Accounts Receivable</th>
-                        <th className="p-3 border-r border-slate-300 text-right w-32">Balance</th>
-                        <th className="p-3 border-r border-slate-300 text-right w-36 text-orange-600">Discount Given</th>
-                        <th className="p-3 border-r border-slate-300 text-right w-40 text-emerald-600">Amount Recv.</th>
-                        <th className="p-3 w-12 text-center">Act</th>
-                    </tr>
+                    <tr><th className="p-3 border-r border-slate-300 w-12 text-center">Sr.</th><th className="p-3 border-r border-slate-300 text-left">Accounts Receivable</th><th className="p-3 border-r border-slate-300 text-right w-32">Balance</th><th className="p-3 border-r border-slate-300 text-right w-36 text-orange-600">Discount Given</th><th className="p-3 border-r border-slate-300 text-right w-40 text-emerald-600">Amount Recv.</th><th className="p-3 w-12 text-center">Act</th></tr>
                 </thead>
                 <tbody className="bg-white">
                     {rows.map((row, i) => (
                         <tr key={row.id} className={`border-b border-slate-200 hover:bg-blue-50/50 transition-colors ${activeRowDrop === i ? 'relative z-50' : 'relative z-0'}`}>
-                            
                             <td className="p-0 border-r border-slate-200 text-center font-bold text-slate-400">{i + 1}</td>
-                            
                             <td className="p-0 border-r border-slate-200 relative overflow-visible">
                                 <input id={`search-${i}`} type="text" placeholder="Search customer or ID..." value={row.search} autoComplete="off"
                                     onChange={(e) => { updateRow(i, 'search', e.target.value); updateRow(i, 'customerId', ''); setActiveRowDrop(i); }} 
                                     onFocus={(e) => { setActiveRowDrop(i); e.target.select() }} 
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            e.preventDefault();
-                                            const list = filteredCustomers(i);
-                                            if (activeRowDrop === i && list.length > 0 && !row.customerId) handleSelectCustomer(i, list[0]);
-                                            else document.getElementById(`discount-${i}`)?.focus();
-                                        }
-                                    }}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); const list = filteredCustomers(i); if (activeRowDrop === i && list.length > 0 && !row.customerId) handleSelectCustomer(i, list[0]); else document.getElementById(`discount-${i}`)?.focus(); } }}
                                     className="w-full h-full p-3 md:p-4 bg-transparent font-bold text-slate-900 outline-none uppercase placeholder:text-slate-300 placeholder:font-normal focus:bg-blue-50/50 transition-colors" 
                                 />
                                 {activeRowDrop === i && (
                                     <div className="absolute left-0 top-full mt-1 w-full md:w-[400px] z-[9999] bg-white border border-slate-300 shadow-2xl rounded-lg max-h-60 overflow-y-auto p-1">
                                         {filteredCustomers(i).map(c => (
-                                            <div key={c.id} onClick={() => handleSelectCustomer(i, c)} className="p-3 cursor-pointer rounded text-slate-900 hover:bg-slate-100 flex justify-between items-center border-b border-slate-50 last:border-0">
-                                                <span className="font-black text-xs uppercase">{c.name} <span className="text-[10px] text-slate-400 font-mono ml-2 lowercase">#{c.id}</span></span>
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${c.balance > 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>PKR {c.balance.toLocaleString()}</span>
-                                            </div>
+                                            <div key={c.id} onClick={() => handleSelectCustomer(i, c)} className="p-3 cursor-pointer rounded text-slate-900 hover:bg-slate-100 flex justify-between items-center border-b border-slate-50 last:border-0"><span className="font-black text-xs uppercase">{c.name} <span className="text-[10px] text-slate-400 font-mono ml-2 lowercase">#{c.id}</span></span><span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${c.balance > 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>PKR {c.balance.toLocaleString()}</span></div>
                                         ))}
-                                        {filteredCustomers(i).length === 0 && <div className="p-4 text-center text-slate-400 font-bold text-xs uppercase tracking-widest">No customers found</div>}
                                     </div>
                                 )}
                             </td>
-
-                            <td className="p-0 border-r border-slate-200 bg-slate-50/50">
-                                <div className="w-full h-full p-3 md:p-4 text-right font-black text-slate-500 truncate">{row.customerId ? row.balance.toLocaleString() : '---'}</div>
-                            </td>
-
-                            <td className="p-0 border-r border-slate-200 bg-orange-50/30">
-                                <input id={`discount-${i}`} type="number" placeholder="0" value={row.discount} 
-                                    onChange={(e) => updateRow(i, 'discount', e.target.value)} onFocus={(e) => e.target.select()} 
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById(`amount-${i}`)?.focus(); } }}
-                                    className="w-full h-full p-3 md:p-4 bg-transparent text-right font-black text-orange-600 outline-none focus:bg-orange-50 transition-colors" 
-                                />
-                            </td>
-
-                            <td className="p-0 border-r border-slate-200 bg-emerald-50/30">
-                                <input id={`amount-${i}`} type="number" placeholder="0" value={row.amount} 
-                                    onChange={(e) => updateRow(i, 'amount', e.target.value)} onFocus={(e) => e.target.select()} 
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRow(); setTimeout(() => (document.getElementById(`search-${i + 1}`) as HTMLInputElement)?.focus(), 50) } }}
-                                    className="w-full h-full p-3 md:p-4 bg-transparent text-right font-black text-emerald-600 outline-none focus:bg-emerald-50 transition-colors" 
-                                />
-                            </td>
-
-                            <td className="p-0 text-center">
-                                {rows.length > 1 ? (
-                                    <button type="button" onClick={() => setRows(rows.filter((_, idx) => idx !== i))} className="w-full h-full p-3 md:p-4 text-red-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors" title="Delete Row"><Trash2 size={16} /></button>
-                                ) : (
-                                    <div className="w-full h-full p-3 md:p-4 text-slate-200 flex items-center justify-center"><Trash2 size={16} /></div>
-                                )}
-                            </td>
+                            <td className="p-0 border-r border-slate-200 bg-slate-50/50"><div className="w-full h-full p-3 md:p-4 text-right font-black text-slate-500 truncate">{row.customerId ? row.balance.toLocaleString() : '---'}</div></td>
+                            <td className="p-0 border-r border-slate-200 bg-orange-50/30"><input id={`discount-${i}`} type="number" placeholder="0" value={row.discount} onChange={(e) => updateRow(i, 'discount', e.target.value)} onFocus={(e) => e.target.select()} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById(`amount-${i}`)?.focus(); } }} className="w-full h-full p-3 md:p-4 bg-transparent text-right font-black text-orange-600 outline-none focus:bg-orange-50 transition-colors" /></td>
+                            <td className="p-0 border-r border-slate-200 bg-emerald-50/30"><input id={`amount-${i}`} type="number" placeholder="0" value={row.amount} onChange={(e) => updateRow(i, 'amount', e.target.value)} onFocus={(e) => e.target.select()} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRow(); setTimeout(() => (document.getElementById(`search-${i + 1}`) as HTMLInputElement)?.focus(), 50) } }} className="w-full h-full p-3 md:p-4 bg-transparent text-right font-black text-emerald-600 outline-none focus:bg-emerald-50 transition-colors" /></td>
+                            <td className="p-0 text-center">{rows.length > 1 ? <button type="button" onClick={() => setRows(rows.filter((_, idx) => idx !== i))} className="w-full h-full p-3 md:p-4 text-red-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors" title="Delete Row"><Trash2 size={16} /></button> : <div className="w-full h-full p-3 md:p-4 text-slate-200 flex items-center justify-center"><Trash2 size={16} /></div>}</td>
                         </tr>
                     ))}
                 </tbody>

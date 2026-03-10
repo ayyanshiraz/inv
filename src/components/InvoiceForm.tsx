@@ -11,7 +11,6 @@ const getPKTDateString = (dateObj?: Date | string) => {
     return `${pkt.getFullYear()}-${String(pkt.getMonth() + 1).padStart(2, '0')}-${String(pkt.getDate()).padStart(2, '0')}`;
 };
 
-// Strict format for the un-focused state
 const formatDDMMYYYY = (dateStr: string) => {
     if (!dateStr) return '';
     const parts = dateStr.split('-');
@@ -29,7 +28,6 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
   const [prevBalance, setPrevBalance] = useState(0)
 
   const [invoiceDate, setInvoiceDate] = useState(initialData?.createdAt ? getPKTDateString(initialData.createdAt) : getPKTDateString())
-  const [dateFocus, setDateFocus] = useState(false)
 
   const [rows, setRows] = useState([{ id: Date.now().toString(), productId: '', search: '', price: '', quantity: 1, total: 0, unit: '' }])
   const [activeRowDrop, setActiveRowDrop] = useState<number | null>(null)
@@ -64,12 +62,7 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
     setIsSubmitting(true)
 
     const todayStr = getPKTDateString();
-    let finalTimestamp;
-    if (invoiceDate === todayStr) {
-        finalTimestamp = new Date().toISOString(); 
-    } else {
-        finalTimestamp = new Date(`${invoiceDate}T12:00:00+05:00`).toISOString(); 
-    }
+    const finalTimestamp = invoiceDate === todayStr ? new Date().toISOString() : new Date(`${invoiceDate}T12:00:00+05:00`).toISOString(); 
 
     const data = { 
         customerId: selectedCustomer.id, 
@@ -84,27 +77,15 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
     
     try {
         const result = initialData ? await updateInvoice(initialData.id, data) : await createInvoice(data)
-        
         if (result?.id) { 
             if (!isHoldRequest) window.open(`/print/${result.id}`, '_blank'); 
-
             if (!initialData) {
-                setSelectedCustomer(null);
-                setCustSearch('');
-                setPrevBalance(0);
-                setDiscountAmount('');
-                setPaidAmount('');
+                setSelectedCustomer(null); setCustSearch(''); setPrevBalance(0); setDiscountAmount(''); setPaidAmount('');
                 setRows([{ id: Date.now().toString(), productId: '', search: '', price: '', quantity: 1, total: 0, unit: '' }]);
                 alert(isHoldRequest ? 'Quotation saved successfully!' : 'Invoice saved successfully!');
-            } else {
-                router.push(isHoldRequest ? '/invoice/hold' : '/invoices') 
-            }
+            } else { router.push(isHoldRequest ? '/invoice/hold' : '/invoices') }
         }
-    } catch (error) {
-        alert("Error saving invoice. Please try again.")
-    } finally {
-        setIsSubmitting(false)
-    }
+    } catch (error) { alert("Error saving invoice. Please try again.") } finally { setIsSubmitting(false) }
   }
 
   useEffect(() => {
@@ -118,17 +99,11 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
 
   useEffect(() => {
     if (initialData) {
-        setSelectedCustomer(initialData.customer)
-        setCustSearch(initialData.customer.name)
-        setPaidAmount(initialData.paidAmount || 0)
-        setDiscountAmount(initialData.discountAmount || 0) 
-        setRows(initialData.items.map((item: any, idx: number) => ({
-            id: `edit-${idx}`, productId: item.productId, search: item.product.name, price: item.price.toString(), quantity: item.quantity, total: item.price * item.quantity, unit: item.product?.unit || 'Bags'
-        })))
+        setSelectedCustomer(initialData.customer); setCustSearch(initialData.customer.name); setPaidAmount(initialData.paidAmount || 0); setDiscountAmount(initialData.discountAmount || 0);
+        setRows(initialData.items.map((item: any, idx: number) => ({ id: `edit-${idx}`, productId: item.productId, search: item.product.name, price: item.price.toString(), quantity: item.quantity, total: item.price * item.quantity, unit: item.product?.unit || 'Bags' })))
         getCustomerBalance(initialData.customer.id).then(bal => {
             let invoiceImpact = initialData.isReturn ? -(initialData.totalAmount) : (initialData.totalAmount - (initialData.paidAmount || 0))
-            if(initialData.isHold) invoiceImpact = 0; 
-            setPrevBalance(bal - invoiceImpact)
+            if(initialData.isHold) invoiceImpact = 0; setPrevBalance(bal - invoiceImpact)
         })
     }
   }, [initialData])
@@ -147,39 +122,27 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
   }
 
   const handleInputEnter = (e: React.KeyboardEvent, nextFieldId: string) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById(nextFieldId)?.focus() } }
-  
-  const handlePriceEnter = (e: React.KeyboardEvent, index: number) => { 
-      if (e.key === 'Enter') { 
-          e.preventDefault(); 
-          addRow(); 
-          setTimeout(() => document.getElementById(`search-${index + 1}`)?.focus(), 50) 
-      } 
-  }
+  const handlePriceEnter = (e: React.KeyboardEvent, index: number) => { if (e.key === 'Enter') { e.preventDefault(); addRow(); setTimeout(() => document.getElementById(`search-${index + 1}`)?.focus(), 50) } }
 
   const handleSelectCustomer = async (cust: any) => {
-    setSelectedCustomer(cust); setCustSearch(cust.name); setShowCustDropdown(false)
-    const balance = await getCustomerBalance(cust.id); setPrevBalance(balance)
-    document.getElementById('search-0')?.focus()
+    setSelectedCustomer(cust); setCustSearch(cust.name); setShowCustDropdown(false); const balance = await getCustomerBalance(cust.id); setPrevBalance(balance); document.getElementById('search-0')?.focus()
   }
 
   const handleSelectProduct = (index: number, prod: any) => {
-    const newRows = [...rows]
-    newRows[index].productId = prod.id; 
-    newRows[index].search = prod.name; 
-    newRows[index].price = prod.price ? prod.price.toString() : '';
-    newRows[index].unit = prod.unit || 'Bags'; 
-    newRows[index].total = (Number(newRows[index].price) || 0) * (Number(newRows[index].quantity) || 0)
-    setRows(newRows); setActiveRowDrop(null); document.getElementById(`qty-${index}`)?.focus()
+    const newRows = [...rows]; newRows[index].productId = prod.id; newRows[index].search = prod.name; newRows[index].price = prod.price ? prod.price.toString() : ''; newRows[index].unit = prod.unit || 'Bags'; newRows[index].total = (Number(newRows[index].price) || 0) * (Number(newRows[index].quantity) || 0); setRows(newRows); setActiveRowDrop(null); document.getElementById(`qty-${index}`)?.focus()
   }
 
   const updateRowDetails = (index: number, field: string, value: string | number) => {
-    const newRows = [...rows] as any; newRows[index][field] = value
-    newRows[index].total = (Number(newRows[index].price) || 0) * (Number(newRows[index].quantity) || 0)
-    setRows(newRows)
+    const newRows = [...rows] as any; newRows[index][field] = value; newRows[index].total = (Number(newRows[index].price) || 0) * (Number(newRows[index].quantity) || 0); setRows(newRows)
   }
 
   const addRow = () => setRows([...rows, { id: Date.now().toString(), productId: '', search: '', price: '', quantity: 1, total: 0, unit: '' }])
   const removeRow = (index: number) => { if (rows.length > 1) setRows(rows.filter((_, i) => i !== index)) }
+  
+  const openDatePicker = (id: string) => {
+      const el = document.getElementById(id) as any;
+      if (el && typeof el.showPicker === 'function') { try { el.showPicker() } catch(e) { el.focus() } } else if (el) { el.focus() }
+  }
 
   return (
     <div className="bg-white p-4 md:p-8 rounded-2xl shadow-xl border border-slate-200 relative">
@@ -208,15 +171,10 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
             <div className="w-full md:w-1/2">
                 <label className="text-xs font-black uppercase text-slate-800 mb-2 block">Invoice Date</label>
                 
-                {/* THE FOCUS SWAP FIX: Fully editable, un-glitchable DD/MM/YYYY */}
-                <input 
-                    type={dateFocus ? "date" : "text"} 
-                    value={dateFocus ? invoiceDate : formatDDMMYYYY(invoiceDate)} 
-                    onChange={(e) => setInvoiceDate(e.target.value)} 
-                    onFocus={() => setDateFocus(true)}
-                    onBlur={() => setDateFocus(false)}
-                    className="w-full p-3 bg-white border-2 border-slate-300 rounded-xl font-black text-slate-900 outline-none focus:border-blue-600 transition cursor-pointer text-center tracking-widest" 
-                />
+                <div onClick={() => openDatePicker('invoice-date-picker')} className="w-full h-[52px] bg-white border-2 border-slate-300 rounded-xl font-black text-slate-900 cursor-pointer hover:border-blue-600 transition flex items-center px-3 tracking-widest relative overflow-hidden">
+                    {formatDDMMYYYY(invoiceDate)}
+                    <input id="invoice-date-picker" type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className="absolute w-0 h-0 opacity-0" />
+                </div>
 
             </div>
             <div className="w-full md:w-1/2 bg-slate-50 p-3 rounded-xl flex flex-col justify-center items-center md:items-end border-2 border-slate-200 mt-4 md:mt-0">

@@ -29,8 +29,9 @@ export async function logoutUser() {
   redirect('/login')
 }
 
-async function getNextInvoiceId(userId: string, tx: any) {
-    const allInvoices = await tx.invoice.findMany({ where: { userId }, select: { id: true } });
+// Global ID Generator (Prevents Invoice ID collisions between admin & admin3)
+async function getNextInvoiceId(tx: any) {
+    const allInvoices = await tx.invoice.findMany({ select: { id: true } });
     let maxSeq = 0;
     for (const inv of allInvoices) {
         if (/^\d+$/.test(inv.id)) {
@@ -42,7 +43,7 @@ async function getNextInvoiceId(userId: string, tx: any) {
 }
 
 // ==========================================
-// 1. PRODUCT ACTIONS
+// 1. PRODUCT ACTIONS (ISOLATED)
 // ==========================================
 export async function saveProduct(formData: FormData) {
   const userId = await getUser()
@@ -77,8 +78,13 @@ export async function deleteProduct(id: string) {
   const userId = await getUser()
   const existing = await prisma.product.findUnique({ where: { id } })
   if (existing?.userId === userId) { 
-      try { await prisma.product.delete({ where: { id } }); revalidateAll(); return { success: true } } 
-      catch(error) { return { error: "Cannot delete this product because it exists inside past invoices." } }
+      try { 
+          await prisma.invoiceItem.deleteMany({ where: { productId: id } })
+          await prisma.product.delete({ where: { id } }) 
+          revalidateAll(); 
+          return { success: true } 
+      } 
+      catch(error) { return { error: "Failed to force delete product." } }
   }
   return { error: "Unauthorized" }
 }
@@ -93,18 +99,24 @@ export async function bulkUpdateProductPrices(updates: { id: string, cost: numbe
 }
 
 // ==========================================
-// 2. CATEGORY & CUSTOMER ACTIONS
+// 2. CATEGORY & CUSTOMER ACTIONS (ISOLATED)
 // ==========================================
 export async function addProductCategory(formData: FormData) {
   const userId = await getUser()
+  const originalId = formData.get('originalId') as string
   const name = formData.get('name') as string
   let id = formData.get('id') as string
   if (!id || id.trim() === '') id = `PCAT-${Math.floor(Math.random() * 100000)}`
-  const existing = await prisma.productCategory.findUnique({ where: { id }})
-  if (existing) {
-      if (existing.userId !== userId) return { error: "This Category ID is already in use." }
-      else await prisma.productCategory.update({ where: { id }, data: { name } }) 
-  } else await prisma.productCategory.create({ data: { id, name, userId } }) 
+
+  if (originalId && originalId !== id) {
+      await prisma.productCategory.update({ where: { id: originalId }, data: { id, name } })
+  } else {
+      const existing = await prisma.productCategory.findUnique({ where: { id }})
+      if (existing) {
+          if (existing.userId !== userId) return { error: "This Category ID is already in use." }
+          else await prisma.productCategory.update({ where: { id }, data: { name } }) 
+      } else await prisma.productCategory.create({ data: { id, name, userId } }) 
+  }
   revalidateAll(); return { success: true }
 }
 
@@ -145,23 +157,42 @@ export async function saveCustomer(formData: FormData) {
 export async function deleteCustomer(id: string) {
   const userId = await getUser()
   const existing = await prisma.customer.findUnique({ where: { id } })
+  
   if (existing?.userId === userId) { 
-      try { await prisma.customer.delete({ where: { id } }); revalidateAll(); return { success: true } } 
-      catch (error) { return { error: "Cannot delete this customer because they have existing invoices or ledgers." } } 
+      try { 
+          const customerInvoices = await prisma.invoice.findMany({ where: { customerId: id } })
+          const invoiceIds = customerInvoices.map(i => i.id)
+
+          if (invoiceIds.length > 0) {
+              await prisma.invoiceItem.deleteMany({ where: { invoiceId: { in: invoiceIds } } })
+          }
+          await prisma.invoice.deleteMany({ where: { customerId: id } })
+          await prisma.customer.delete({ where: { id } }); 
+          
+          revalidateAll(); 
+          return { success: true } 
+      } 
+      catch (error) { return { error: "Failed to force delete customer." } } 
   }
   return { error: "Unauthorized" }
 }
 
 export async function addCustomerCategory(formData: FormData) {
   const userId = await getUser()
+  const originalId = formData.get('originalId') as string
   const name = formData.get('name') as string
   let id = formData.get('id') as string
   if (!id || id.trim() === '') id = `CCAT-${Math.floor(Math.random() * 100000)}`
-  const existing = await prisma.customerCategory.findUnique({ where: { id }})
-  if (existing) { 
-      if (existing.userId !== userId) return { error: "This Category ID is already in use." }
-      else await prisma.customerCategory.update({ where: { id }, data: { name } }) 
-  } else await prisma.customerCategory.create({ data: { id, name, userId } }) 
+
+  if (originalId && originalId !== id) {
+      await prisma.customerCategory.update({ where: { id: originalId }, data: { id, name } })
+  } else {
+      const existing = await prisma.customerCategory.findUnique({ where: { id }})
+      if (existing) { 
+          if (existing.userId !== userId) return { error: "This Category ID is already in use." }
+          else await prisma.customerCategory.update({ where: { id }, data: { name } }) 
+      } else await prisma.customerCategory.create({ data: { id, name, userId } }) 
+  }
   revalidateAll(); return { success: true }
 }
 
@@ -173,14 +204,14 @@ export async function deleteCustomerCategory(id: string) {
 }
 
 // ==========================================
-// 3. INVOICE & RETURN LOGIC
+// 3. INVOICE & RETURN LOGIC (ISOLATED)
 // ==========================================
 export async function createInvoice(invoiceData: any) {
   const userId = await getUser()
   const dateToSave = invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date()
   
   const result = await prisma.$transaction(async (tx: any) => {
-    const nextId = await getNextInvoiceId(userId, tx);
+    const nextId = await getNextInvoiceId(tx);
     return await tx.invoice.create({
       data: {
         id: nextId,
@@ -236,7 +267,7 @@ export async function processSmartReturn(originalInvoiceId: string, returnItems:
   const userId = await getUser(); 
   const dateToSave = returnDate ? new Date(returnDate) : new Date();
   await prisma.$transaction(async (tx: any) => {
-      const nextId = await getNextInvoiceId(userId, tx);
+      const nextId = await getNextInvoiceId(tx);
       await tx.invoice.create({ 
           data: { 
               id: nextId,
@@ -249,13 +280,12 @@ export async function processSmartReturn(originalInvoiceId: string, returnItems:
 }
 
 export async function getCustomerBalance(customerId: string) {
-  const userId = await getUser()
+  const userId = await getUser();
   const customer = await prisma.customer.findUnique({ where: { id: customerId } })
   if (!customer || customer.userId !== userId) return 0;
 
   const invoices = await prisma.invoice.findMany({ where: { customerId, userId, isHold: false } })
   
-  // FIX: Vouchers (total=0) now properly subtract BOTH paidAmount and discountAmount
   const invoiceBalance = invoices.reduce((acc: number, inv: any) => { 
       if (inv.isReturn) return acc - inv.totalAmount;
       if (inv.totalAmount === 0) return acc - (inv.paidAmount || 0) - (inv.discountAmount || 0);
@@ -265,19 +295,22 @@ export async function getCustomerBalance(customerId: string) {
 }
 
 export async function getCustomerInvoices(customerId: string) {
-  const userId = await getUser(); return await prisma.invoice.findMany({ where: { customerId, userId, isReturn: false, isHold: false }, include: { items: { include: { product: true } }, customer: true }, orderBy: { createdAt: 'desc' } })
+  const userId = await getUser();
+  return await prisma.invoice.findMany({ where: { customerId, userId, isReturn: false, isHold: false }, include: { items: { include: { product: true } }, customer: true }, orderBy: { createdAt: 'desc' } })
 }
 
 // ==========================================
-// 4. REPORTING LOGIC
+// 4. REPORTING LOGIC (ISOLATED)
 // ==========================================
 export async function searchInvoices(query: string) {
-  const userId = await getUser(); if (!query) return []
+  const userId = await getUser();
+  if (!query) return []
   return await prisma.invoice.findMany({ where: { userId, OR: [ { id: { contains: query, mode: 'insensitive' } }, { customer: { name: { contains: query, mode: 'insensitive' } } }, { customer: { phone: { contains: query, mode: 'insensitive' } } } ] }, include: { customer: true, items: { include: { product: true } } }, orderBy: { createdAt: 'desc' }, take: 20 })
 }
 
 export async function getDashboardStats(from?: Date, to?: Date) {
-  const userId = await getUser(); const dateFilter = (from && to) ? { createdAt: { gte: from, lte: to } } : {}
+  const userId = await getUser();
+  const dateFilter = (from && to) ? { createdAt: { gte: from, lte: to } } : {}
   const invoices = await prisma.invoice.findMany({ where: { userId, ...dateFilter }, include: { items: { include: { product: true } } } })
   let revenue = 0; let returns = 0; let costOfGoods = 0; let salesCount = 0; let holdCount = 0;
   invoices.forEach((inv: any) => {
@@ -288,7 +321,6 @@ export async function getDashboardStats(from?: Date, to?: Date) {
   const customers = await prisma.customer.findMany({ where: { userId } }); const allInvoices = await prisma.invoice.findMany({ where: { userId, isHold: false } }) 
   let totalReceivable = customers.reduce((sum: number, c: any) => sum + Number(c.openingBalance || 0), 0)
   
-  // FIX: Accurate receivables dashboard calculation including voucher discounts
   allInvoices.forEach((inv: any) => { 
       if (inv.isReturn) totalReceivable -= Number(inv.totalAmount);
       else if (inv.totalAmount === 0) totalReceivable -= (Number(inv.paidAmount || 0) + Number(inv.discountAmount || 0));
@@ -298,7 +330,7 @@ export async function getDashboardStats(from?: Date, to?: Date) {
 }
 
 export async function getLedgerReportData(from?: Date, to?: Date) {
-    const userId = await getUser()
+    const userId = await getUser();
     const start = from ? new Date(from) : new Date(0)
     const end = to ? new Date(to) : new Date()
     end.setHours(23, 59, 59, 999)
@@ -306,7 +338,7 @@ export async function getLedgerReportData(from?: Date, to?: Date) {
     let periodRevenue = 0; let periodCost = 0;
     const productSales: Record<string, any> = {}
 
-    const customers = await prisma.customer.findMany({ where: { userId }, orderBy: { name: 'asc' } })
+    const customers = await prisma.customer.findMany({ where: { userId }, orderBy: { id: 'asc' } })
     const allInvoicesRaw = await prisma.invoice.findMany({ where: { userId }, include: { items: { include: { product: true } } } })
   
     const activeInvoices = allInvoicesRaw.filter((i: any) => !i.isHold)
@@ -316,7 +348,6 @@ export async function getLedgerReportData(from?: Date, to?: Date) {
       let openingBalance = Number(cust.openingBalance || 0); let invoicedAmount = 0; let paidAmount = 0; let returnAmount = 0;
       activeInvoices.filter((inv: any) => inv.customerId === cust.id).forEach((inv: any) => {
         const invDate = new Date(inv.createdAt)
-        // Voucher credit includes BOTH cash paid and discount given
         const voucherCredit = inv.totalAmount === 0 ? (Number(inv.paidAmount || 0) + Number(inv.discountAmount || 0)) : 0;
 
         if (invDate < start) { 
@@ -371,7 +402,7 @@ export async function getLedgerReportData(from?: Date, to?: Date) {
         customerLedgers, 
         categoryLedgers: Object.values(categoryMap).sort((a:any, b:any) => a.category.localeCompare(b.category)),
         productSales: Object.values(productSales).sort((a:any, b:any) => b.revenue - a.revenue),
-        allProducts: await prisma.product.findMany({ where: { userId }, orderBy: { name: 'asc' } }),
+        allProducts: await prisma.product.findMany({ where: { userId }, orderBy: { id: 'asc' } }),
         allCustomers: customers,
         productCategoryLedgers: Object.values(productCategoryMap).sort((a:any, b:any) => a.category.localeCompare(b.category)),
         holdInvoices,
@@ -380,14 +411,14 @@ export async function getLedgerReportData(from?: Date, to?: Date) {
 }
 
 // ==========================================
-// 5. RECEIVABLES & VOUCHERS
+// 5. RECEIVABLES & VOUCHERS (ISOLATED)
 // ==========================================
 export async function createVouchers(vouchers: { customerId: string, amount: number, discount?: number }[], voucherDate?: string) {
   const userId = await getUser()
   const dateToSave = voucherDate ? new Date(voucherDate) : new Date()
 
   await prisma.$transaction(async (tx: any) => {
-      const baseIdNum = parseInt(await getNextInvoiceId(userId, tx), 10);
+      const baseIdNum = parseInt(await getNextInvoiceId(tx), 10);
       for (let i = 0; i < vouchers.length; i++) {
           const v = vouchers[i];
           await tx.invoice.create({

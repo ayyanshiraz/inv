@@ -10,9 +10,11 @@ export default function CategoryManager({ title, categories = [], saveAction, de
 }) {
   const [formData, setFormData] = useState({ id: '', name: '' })
   const [isEditing, setIsEditing] = useState(false)
+  const [originalId, setOriginalId] = useState('')
 
   const handleEdit = (cat: any) => {
     setFormData({ id: cat.id, name: cat.name })
+    setOriginalId(cat.id)
     setIsEditing(true)
   }
 
@@ -37,16 +39,19 @@ export default function CategoryManager({ title, categories = [], saveAction, de
             } else {
                 setFormData({id:'', name:''}); 
                 setIsEditing(false); 
+                setOriginalId('');
             }
         }} className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
+          <input type="hidden" name="originalId" value={originalId} />
+
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Category ID (Optional)</label>
+            {/* FIX: Removed readOnly so you can change the ID freely */}
             <input type="text" name="id" value={formData.id} onChange={(e) => setFormData({...formData, id: e.target.value})}
-              readOnly={isEditing} placeholder="e.g. CAT-001"
-              className={`w-full rounded-xl border-2 p-4 font-bold outline-none transition uppercase ${isEditing ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-600'}`}
+              placeholder="e.g. CAT-001"
+              className="w-full rounded-xl border-2 bg-slate-50 border-slate-200 p-4 font-bold text-slate-900 outline-none focus:border-blue-600 uppercase"
             />
-            {isEditing && <p className="text-[10px] text-red-500 font-bold mt-1">ID cannot be changed during editing.</p>}
           </div>
 
           <div>
@@ -60,7 +65,7 @@ export default function CategoryManager({ title, categories = [], saveAction, de
                 {isEditing ? 'Update Category' : 'Save Category'}
               </button>
               {isEditing && (
-                  <button type="button" onClick={() => { setIsEditing(false); setFormData({id:'', name:''}); }} className="px-8 rounded-xl font-black uppercase tracking-widest text-slate-600 bg-slate-200 hover:bg-slate-300 transition">Cancel</button>
+                  <button type="button" onClick={() => { setIsEditing(false); setFormData({id:'', name:''}); setOriginalId(''); }} className="px-8 rounded-xl font-black uppercase tracking-widest text-slate-600 bg-slate-200 hover:bg-slate-300 transition">Cancel</button>
               )}
           </div>
         </form>
