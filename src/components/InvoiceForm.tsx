@@ -78,14 +78,25 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
     try {
         const result = initialData ? await updateInvoice(initialData.id, data) : await createInvoice(data)
         if (result?.id) { 
-            if (!isHoldRequest) window.open(`/print/${result.id}`, '_blank'); 
+            // Removed window.open() so it never automatically opens the print screen
             if (!initialData) {
-                setSelectedCustomer(null); setCustSearch(''); setPrevBalance(0); setDiscountAmount(''); setPaidAmount('');
+                // Completely resets the form for rapid sequential data entry
+                setSelectedCustomer(null); 
+                setCustSearch(''); 
+                setPrevBalance(0); 
+                setDiscountAmount(''); 
+                setPaidAmount('');
                 setRows([{ id: Date.now().toString(), productId: '', search: '', price: '', quantity: 1, total: 0, unit: '' }]);
                 alert(isHoldRequest ? 'Quotation saved successfully!' : 'Invoice saved successfully!');
-            } else { router.push(isHoldRequest ? '/invoice/hold' : '/invoices') }
+            } else { 
+                router.push(isHoldRequest ? '/invoice/hold' : '/invoices') 
+            }
         }
-    } catch (error) { alert("Error saving invoice. Please try again.") } finally { setIsSubmitting(false) }
+    } catch (error) { 
+        alert("Error saving invoice. Please try again.") 
+    } finally { 
+        setIsSubmitting(false) 
+    }
   }
 
   useEffect(() => {
@@ -138,14 +149,20 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
 
   const addRow = () => setRows([...rows, { id: Date.now().toString(), productId: '', search: '', price: '', quantity: 1, total: 0, unit: '' }])
   const removeRow = (index: number) => { if (rows.length > 1) setRows(rows.filter((_, i) => i !== index)) }
-  
-  const openDatePicker = (id: string) => {
-      const el = document.getElementById(id) as any;
-      if (el && typeof el.showPicker === 'function') { try { el.showPicker() } catch(e) { el.focus() } } else if (el) { el.focus() }
-  }
 
   return (
     <div className="bg-white p-4 md:p-8 rounded-2xl shadow-xl border border-slate-200 relative">
+      
+      {/* Universal Safari Date Fixer CSS */}
+      <style>{`
+          .safari-date-killer::-webkit-datetime-edit { color: transparent !important; }
+          .safari-date-killer::-webkit-datetime-edit-fields-wrapper { color: transparent !important; }
+          .safari-date-killer::-webkit-datetime-edit-text { color: transparent !important; }
+          input[type="date"]::-webkit-calendar-picker-indicator {
+              position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;
+          }
+      `}</style>
+
       {(showCustDropdown || activeRowDrop !== null) && <div className="fixed inset-0 z-30" onClick={() => { setShowCustDropdown(false); setActiveRowDrop(null); }} />}
 
       <div className="flex flex-col lg:flex-row gap-4 mb-8 relative z-40">
@@ -171,9 +188,11 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
             <div className="w-full md:w-1/2">
                 <label className="text-xs font-black uppercase text-slate-800 mb-2 block">Invoice Date</label>
                 
-                <div onClick={() => openDatePicker('invoice-date-picker')} className="w-full h-[52px] bg-white border-2 border-slate-300 rounded-xl font-black text-slate-900 cursor-pointer hover:border-blue-600 transition flex items-center px-3 tracking-widest relative overflow-hidden">
-                    {formatDDMMYYYY(invoiceDate)}
-                    <input id="invoice-date-picker" type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className="absolute w-0 h-0 opacity-0" />
+                <div className="relative w-full h-[52px] group">
+                    <div className="absolute inset-0 bg-white border-2 border-slate-300 rounded-xl flex items-center px-3 font-black text-slate-900 group-hover:border-blue-600 transition-colors z-10 pointer-events-none">
+                        {formatDDMMYYYY(invoiceDate)}
+                    </div>
+                    <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className="safari-date-killer absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20 text-transparent bg-transparent" style={{ color: 'transparent' }} />
                 </div>
 
             </div>
@@ -288,7 +307,7 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
               </button>
           )}
           <button onClick={() => handleSave(false)} type="button" disabled={isSubmitting} style={{ backgroundColor: initialData?.isReturn ? '#dc2626' : '#2563eb', color: 'white' }} className="flex-[1.5] py-5 rounded-xl font-black text-sm md:text-lg uppercase tracking-widest shadow-xl hover:opacity-90 transition active:scale-95 flex flex-col items-center justify-center disabled:opacity-50">
-            <span>{isSubmitting ? 'Saving...' : (initialData ? (initialData.isReturn ? 'Update Return Record' : 'Update & Print Invoice') : 'Generate & Print Invoice')}</span>
+            <span>{isSubmitting ? 'Saving...' : (initialData ? (initialData.isReturn ? 'Update Return Record' : 'Update Invoice') : 'Generate Invoice')}</span>
             <span className="text-[10px] opacity-75 mt-1 font-bold">Shortcut: Shift + -</span>
           </button>
       </div>
