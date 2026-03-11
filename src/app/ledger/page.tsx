@@ -115,19 +115,45 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
   ]
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:ml-64 p-4 pt-20 lg:p-8 print:m-0 print:p-0 print:bg-white">
-      <div className="max-w-[1400px] mx-auto">
+    <div className="min-h-screen bg-slate-50 lg:ml-64 p-4 pt-20 lg:p-8 print:m-0 print:p-0 print:bg-white print:overflow-visible">
+      <div className="max-w-[1400px] mx-auto print:max-w-full">
         <style>{`
           @media print {
-              @page { size: A4 portrait; margin: 15mm; }
+              @page { size: A4 landscape; margin: 10mm; }
               body { background-color: white !important; margin: 0; padding: 0; }
               body * { visibility: hidden; }
               #print-area, #print-area * { visibility: visible; }
-              #print-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0 !important; border: none !important; box-shadow: none !important; }
+              #print-area { 
+                  position: absolute; 
+                  left: 0; 
+                  top: 0; 
+                  width: 100%; 
+                  margin: 0; 
+                  padding: 0 !important; 
+                  border: none !important; 
+                  box-shadow: none !important;
+                  overflow: visible !important; /* Ensure content can escape bounds */
+              }
               .no-print { display: none !important; }
-              table { width: 100% !important; border-collapse: collapse; }
-              th, td { border: 1px solid #000 !important; padding: 6px !important; color: #000 !important; font-size: 11px !important; }
+              table { 
+                  width: 100% !important; 
+                  border-collapse: collapse; 
+                  table-layout: auto !important; /* Allow browser to adjust column widths */
+              }
+              th, td { 
+                  border: 1px solid #000 !important; 
+                  padding: 4px !important; /* Reduce padding slightly to fit more content */
+                  color: #000 !important; 
+                  font-size: 10px !important; /* Reduce font size to help fit columns */
+                  word-wrap: break-word;
+              }
               th { background-color: #e5e7eb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              
+              /* Force the container of the table to allow overflow scaling */
+              .print-container {
+                 width: 100% !important;
+                 max-width: none !important;
+              }
           }
         `}</style>
 
@@ -172,7 +198,7 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
           <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center border-l-4 border-l-orange-500"><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Receivables</p><h2 className="text-xl font-black text-slate-900">PKR {data.stats.receivables.toLocaleString()}</h2></div><div className="w-10 h-10 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center"><ArrowLeftRight size={20} /></div></div>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-6 print-container">
             <div className="w-full lg:w-64 shrink-0 no-print">
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sticky top-24">
                     <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-3 mb-3">Report Menus</h3>
@@ -188,8 +214,8 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
                 </div>
             </div>
 
-            <div id="print-area" className="flex-1 bg-white border border-slate-200 rounded-xl shadow-sm print:shadow-none print:border-none print:rounded-none min-h-[600px] overflow-hidden relative">
-                <div className="p-6 md:p-8">
+            <div id="print-area" className="flex-1 bg-white border border-slate-200 rounded-xl shadow-sm print:shadow-none print:border-none print:rounded-none min-h-[600px] overflow-hidden print:overflow-visible relative">
+                <div className="p-6 md:p-8 print:p-0">
                     <div className="text-center mb-6 border-b-2 border-slate-800 pb-6">
                         <h1 className="text-2xl font-black uppercase text-black tracking-widest font-serif mb-1">Fahad Traders</h1>
                         <h2 className="text-base font-bold text-slate-800 mb-1">
@@ -204,7 +230,7 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
                         <p className="text-xs font-bold text-slate-500 uppercase">Period: {from ? formatPKTDate(from) : 'Beginning of Time'} - {to ? formatPKTDate(to) : 'Present'}</p>
                     </div>
 
-                    <div className="w-full overflow-x-auto relative">
+                    <div className="w-full overflow-x-auto print:overflow-visible relative print-container">
                         
                         {view === 'customer_history' && (
                             <div className="space-y-6">
@@ -213,13 +239,13 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
                                 </div>
                                 {histCustomerId && historyCustomer ? (
                                     <>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                            <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-sm"><p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Period Opening</p><p className="text-lg font-black text-slate-900 leading-none">PKR {periodOpeningBal.toLocaleString()}</p></div>
-                                            <div className="p-3 bg-white rounded-lg border border-blue-200 shadow-sm"><p className="text-[9px] font-black uppercase text-blue-500 tracking-widest mb-1">Period Debit (+)</p><p className="text-lg font-black text-blue-700 leading-none">{periodDebit.toLocaleString()}</p></div>
-                                            <div className="p-3 bg-white rounded-lg border border-emerald-200 shadow-sm"><p className="text-[9px] font-black uppercase text-emerald-500 tracking-widest mb-1">Period Credit (-)</p><p className="text-lg font-black text-emerald-600 leading-none">{periodCredit.toLocaleString()}</p></div>
-                                            <div className="p-3 bg-slate-900 rounded-lg shadow-sm text-white flex flex-col justify-center"><p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Closing Balance</p><p className="text-xl font-black leading-none">PKR {(periodOpeningBal + periodDebit - periodCredit).toLocaleString()}</p></div>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200 print:border-none print:p-0">
+                                            <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-sm print:shadow-none"><p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Period Opening</p><p className="text-lg font-black text-slate-900 leading-none">PKR {periodOpeningBal.toLocaleString()}</p></div>
+                                            <div className="p-3 bg-white rounded-lg border border-blue-200 shadow-sm print:shadow-none"><p className="text-[9px] font-black uppercase text-blue-500 tracking-widest mb-1">Period Debit (+)</p><p className="text-lg font-black text-blue-700 leading-none">{periodDebit.toLocaleString()}</p></div>
+                                            <div className="p-3 bg-white rounded-lg border border-emerald-200 shadow-sm print:shadow-none"><p className="text-[9px] font-black uppercase text-emerald-500 tracking-widest mb-1">Period Credit (-)</p><p className="text-lg font-black text-emerald-600 leading-none">{periodCredit.toLocaleString()}</p></div>
+                                            <div className="p-3 bg-slate-900 rounded-lg shadow-sm text-white flex flex-col justify-center print:text-black print:bg-white print:border print:border-slate-200 print:shadow-none"><p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1 print:text-slate-600">Closing Balance</p><p className="text-xl font-black leading-none">PKR {(periodOpeningBal + periodDebit - periodCredit).toLocaleString()}</p></div>
                                         </div>
-                                        <table className="w-full min-w-[800px] text-left border-collapse border border-slate-300 relative z-0">
+                                        <table className="w-full text-left border-collapse border border-slate-300 relative z-0">
                                             <thead className="bg-slate-100 text-slate-800 text-[10px] font-black uppercase tracking-widest border-b-2 border-slate-300">
                                                 <tr><th className="p-3 border border-slate-300">Date</th><th className="p-3 border border-slate-300">Description</th><th className="p-3 border border-slate-300 text-right">Debit (+)</th><th className="p-3 border border-slate-300 text-right">Credit (-)</th><th className="p-3 border border-slate-300 text-right font-black text-blue-900">Running Bal</th></tr>
                                             </thead>
@@ -229,8 +255,8 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
                                                     <tr key={r.id} className="hover:bg-slate-50 transition">
                                                         <td className="p-3 border border-slate-300 whitespace-nowrap">{formatPKTDate(r.date)}</td>
                                                         <td className="p-3 border border-slate-300 uppercase flex items-center gap-2">{r.desc.includes('Sale') && <FileText size={14} className="text-blue-500" />}{r.desc.includes('Return') && <CornerDownLeft size={14} className="text-red-500" />}{r.desc.includes('Cash') && <HandCoins size={14} className="text-emerald-500" />}<Link href={`/print/${r.id}`} className="hover:text-blue-600 transition" target="_blank">{r.desc}</Link></td>
-                                                        <td className="p-3 border border-slate-300 text-right text-blue-700">{r.debit > 0 ? r.debit.toLocaleString() : '-'}</td>
-                                                        <td className="p-3 border border-slate-300 text-right text-emerald-600">{r.credit > 0 ? r.credit.toLocaleString() : '-'}</td>
+                                                        <td className="p-3 border border-slate-300 text-right text-blue-700 print:text-black">{r.debit > 0 ? r.debit.toLocaleString() : '-'}</td>
+                                                        <td className="p-3 border border-slate-300 text-right text-emerald-600 print:text-black">{r.credit > 0 ? r.credit.toLocaleString() : '-'}</td>
                                                         <td className="p-3 border border-slate-300 text-right font-black text-slate-900 text-sm print:text-black">{r.runningBal.toLocaleString()}</td>
                                                     </tr>
                                                 ))}
@@ -243,28 +269,28 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
                         )}
 
                         {view === 'customers' && (
-                            <table className="w-full min-w-[800px] text-left border-collapse border border-slate-300">
+                            <table className="w-full text-left border-collapse border border-slate-300">
                             <thead className="bg-slate-100 text-slate-800 text-[10px] font-black uppercase tracking-widest border-b-2 border-slate-300">
                                 <tr><th className="p-3 border border-slate-300 w-12 text-center">Sr.</th><th className="p-3 border border-slate-300">Customer</th><th className="p-3 border border-slate-300 text-right whitespace-nowrap">Opening Bal</th><th className="p-3 border border-slate-300 text-right whitespace-nowrap">Invoiced</th><th className="p-3 border border-slate-300 text-right whitespace-nowrap">Paid Amount</th><th className="p-3 border border-slate-300 text-right whitespace-nowrap">Closing Bal</th></tr>
                             </thead>
                             <tbody className="text-xs font-bold text-slate-700">
                                 {displayCustomers.map((c: any, index: number) => (
                                     <tr key={c.id} className="hover:bg-slate-50 transition">
-                                        <td className="p-3 border border-slate-300 text-center text-slate-400">{index + 1}</td>
-                                        <td className="p-3 border border-slate-300 uppercase whitespace-nowrap text-slate-900">{c.id} - {c.name}</td>
-                                        <td className="p-3 border border-slate-300 text-right">{c.openingBalance.toLocaleString()}</td>
-                                        <td className="p-3 border border-slate-300 text-right text-blue-700">{c.invoicedAmount.toLocaleString()}</td>
-                                        <td className="p-3 border border-slate-300 text-right text-emerald-700">{c.paidAmount.toLocaleString()}</td>
-                                        <td className="p-3 border border-slate-300 text-right font-black text-slate-900">{c.closingBalance.toLocaleString()}</td>
+                                        <td className="p-3 border border-slate-300 text-center text-slate-400 print:text-black">{index + 1}</td>
+                                        <td className="p-3 border border-slate-300 uppercase whitespace-nowrap text-slate-900 print:text-black">{c.id} - {c.name}</td>
+                                        <td className="p-3 border border-slate-300 text-right print:text-black">{c.openingBalance.toLocaleString()}</td>
+                                        <td className="p-3 border border-slate-300 text-right text-blue-700 print:text-black">{c.invoicedAmount.toLocaleString()}</td>
+                                        <td className="p-3 border border-slate-300 text-right text-emerald-700 print:text-black">{c.paidAmount.toLocaleString()}</td>
+                                        <td className="p-3 border border-slate-300 text-right font-black text-slate-900 print:text-black">{c.closingBalance.toLocaleString()}</td>
                                     </tr>
                                 ))}
-                                <tr className="bg-slate-100 border-t-2 border-slate-400 font-black text-slate-900 text-xs"><td colSpan={2} className="p-3 border border-slate-300 text-right uppercase">Filtered Total:</td><td className="p-3 border border-slate-300 text-right">{displayCustomers.reduce((s: number, c: any) => s + c.openingBalance, 0).toLocaleString()}</td><td className="p-3 border border-slate-300 text-right text-blue-700">{displayCustomers.reduce((s: number, c: any) => s + c.invoicedAmount, 0).toLocaleString()}</td><td className="p-3 border border-slate-300 text-right text-emerald-600">{displayCustomers.reduce((s: number, c: any) => s + c.paidAmount, 0).toLocaleString()}</td><td className="p-3 border border-slate-300 text-right text-sm">{displayCustomers.reduce((s: number, c: any) => s + c.closingBalance, 0).toLocaleString()}</td></tr>
+                                <tr className="bg-slate-100 border-t-2 border-slate-400 font-black text-slate-900 text-xs"><td colSpan={2} className="p-3 border border-slate-300 text-right uppercase">Filtered Total:</td><td className="p-3 border border-slate-300 text-right print:text-black">{displayCustomers.reduce((s: number, c: any) => s + c.openingBalance, 0).toLocaleString()}</td><td className="p-3 border border-slate-300 text-right text-blue-700 print:text-black">{displayCustomers.reduce((s: number, c: any) => s + c.invoicedAmount, 0).toLocaleString()}</td><td className="p-3 border border-slate-300 text-right text-emerald-600 print:text-black">{displayCustomers.reduce((s: number, c: any) => s + c.paidAmount, 0).toLocaleString()}</td><td className="p-3 border border-slate-300 text-right text-sm print:text-black">{displayCustomers.reduce((s: number, c: any) => s + c.closingBalance, 0).toLocaleString()}</td></tr>
                             </tbody>
                             </table>
                         )}
 
                         {view === 'categories' && (
-                            <table className="w-full min-w-[800px] text-left border-collapse border border-slate-300">
+                            <table className="w-full text-left border-collapse border border-slate-300">
                             <thead className="bg-slate-100 text-slate-800 text-[10px] font-black uppercase tracking-widest border-b-2 border-slate-300">
                                 <tr>
                                   <th className="p-3 border border-slate-300">Customer Category & Details</th>
@@ -276,44 +302,44 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
                             </thead>
                             {displayCategories.map((cat: any) => (
                                 <tbody key={cat.category} className="text-xs font-bold text-slate-700 border-b-4 border-slate-400">
-                                    <tr className="bg-slate-200 text-slate-900 transition"><td className="p-3 border border-slate-300 uppercase whitespace-nowrap tracking-widest text-sm font-black text-blue-900 border-l-4 border-l-blue-600">{cat.category} (Total)</td><td className="p-3 border border-slate-300 text-right">{cat.openingBalance.toLocaleString()}</td><td className="p-3 border border-slate-300 text-right text-blue-800">{cat.invoicedAmount.toLocaleString()}</td><td className="p-3 border border-slate-300 text-right text-emerald-700">{cat.paidAmount.toLocaleString()}</td><td className="p-3 border border-slate-300 text-right font-black text-lg">{cat.closingBalance.toLocaleString()}</td></tr>
+                                    <tr className="bg-slate-200 text-slate-900 transition"><td className="p-3 border border-slate-300 uppercase whitespace-nowrap tracking-widest text-sm font-black text-blue-900 border-l-4 border-l-blue-600 print:text-black print:border-l-0">{cat.category} (Total)</td><td className="p-3 border border-slate-300 text-right print:text-black">{cat.openingBalance.toLocaleString()}</td><td className="p-3 border border-slate-300 text-right text-blue-800 print:text-black">{cat.invoicedAmount.toLocaleString()}</td><td className="p-3 border border-slate-300 text-right text-emerald-700 print:text-black">{cat.paidAmount.toLocaleString()}</td><td className="p-3 border border-slate-300 text-right font-black text-lg print:text-black">{cat.closingBalance.toLocaleString()}</td></tr>
                                     {displayCustomers.filter((c: any) => c.category === cat.category).map((c: any) => (
                                         <tr key={c.id} className="hover:bg-slate-50 transition bg-white">
-                                            <td className="p-3 border border-slate-300 uppercase whitespace-nowrap text-slate-600 pl-6 border-l-4 border-l-transparent">↳ <span className="ml-2 text-slate-900">{c.id} - {c.name}</span></td>
-                                            <td className="p-3 border border-slate-300 text-right">{c.openingBalance.toLocaleString()}</td>
-                                            <td className="p-3 border border-slate-300 text-right text-blue-600">{c.invoicedAmount.toLocaleString()}</td>
-                                            <td className="p-3 border border-slate-300 text-right text-emerald-600">{c.paidAmount.toLocaleString()}</td>
-                                            <td className="p-3 border border-slate-300 text-right font-black">{c.closingBalance.toLocaleString()}</td>
+                                            <td className="p-3 border border-slate-300 uppercase whitespace-nowrap text-slate-600 pl-6 border-l-4 border-l-transparent print:pl-2 print:text-black">↳ <span className="ml-2 text-slate-900 print:text-black">{c.id} - {c.name}</span></td>
+                                            <td className="p-3 border border-slate-300 text-right print:text-black">{c.openingBalance.toLocaleString()}</td>
+                                            <td className="p-3 border border-slate-300 text-right text-blue-600 print:text-black">{c.invoicedAmount.toLocaleString()}</td>
+                                            <td className="p-3 border border-slate-300 text-right text-emerald-600 print:text-black">{c.paidAmount.toLocaleString()}</td>
+                                            <td className="p-3 border border-slate-300 text-right font-black print:text-black">{c.closingBalance.toLocaleString()}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             ))}
-                            <tfoot className="bg-slate-900 text-white font-black text-xs">
+                            <tfoot className="bg-slate-900 text-white font-black text-xs print:bg-white print:text-black">
                                 <tr>
-                                    <td className="p-3 border border-slate-700 text-right uppercase tracking-widest">Grand Market Total:</td>
-                                    <td className="p-3 border border-slate-700 text-right">{displayCategories.reduce((s: number, c: any) => s + c.openingBalance, 0).toLocaleString()}</td>
-                                    <td className="p-3 border border-slate-700 text-right text-blue-300">{displayCategories.reduce((s: number, c: any) => s + c.invoicedAmount, 0).toLocaleString()}</td>
-                                    <td className="p-3 border border-slate-700 text-right text-emerald-400">{displayCategories.reduce((s: number, c: any) => s + c.paidAmount, 0).toLocaleString()}</td>
-                                    <td className="p-3 border border-slate-700 text-right text-sm">{displayCategories.reduce((s: number, c: any) => s + c.closingBalance, 0).toLocaleString()}</td>
+                                    <td className="p-3 border border-slate-700 text-right uppercase tracking-widest print:border-black">Grand Market Total:</td>
+                                    <td className="p-3 border border-slate-700 text-right print:border-black">{displayCategories.reduce((s: number, c: any) => s + c.openingBalance, 0).toLocaleString()}</td>
+                                    <td className="p-3 border border-slate-700 text-right text-blue-300 print:text-black print:border-black">{displayCategories.reduce((s: number, c: any) => s + c.invoicedAmount, 0).toLocaleString()}</td>
+                                    <td className="p-3 border border-slate-700 text-right text-emerald-400 print:text-black print:border-black">{displayCategories.reduce((s: number, c: any) => s + c.paidAmount, 0).toLocaleString()}</td>
+                                    <td className="p-3 border border-slate-700 text-right text-sm print:text-black print:border-black">{displayCategories.reduce((s: number, c: any) => s + c.closingBalance, 0).toLocaleString()}</td>
                                 </tr>
                             </tfoot>
                             </table>
                         )}
 
                         {view === 'products' && (
-                            <table className="w-full min-w-[700px] text-left border-collapse border border-slate-300">
+                            <table className="w-full text-left border-collapse border border-slate-300">
                             <thead className="bg-slate-100 text-slate-800 text-[10px] font-black uppercase tracking-widest border-b-2 border-slate-300">
                                 <tr><th className="p-3 border border-slate-300 w-12 text-center">Sr.</th><th className="p-3 border border-slate-300 whitespace-nowrap">Product Name</th><th className="p-3 border border-slate-300 whitespace-nowrap">Category</th><th className="p-3 border border-slate-300 text-center whitespace-nowrap">Qty Sold</th><th className="p-3 border border-slate-300 text-right whitespace-nowrap">Gross Revenue</th><th className="p-3 border border-slate-300 text-right whitespace-nowrap">Generated Profit</th></tr>
                             </thead>
                             <tbody className="text-xs font-bold text-slate-700">
                                 {displayProducts.map((p: any, index: number) => (
                                     <tr key={index} className="hover:bg-slate-50 transition">
-                                        <td className="p-3 border border-slate-300 text-center text-slate-400">{index + 1}</td>
-                                        <td className="p-3 border border-slate-300 uppercase whitespace-nowrap text-slate-900">{p.id} - {p.name}</td>
-                                        <td className="p-3 border border-slate-300 whitespace-nowrap">{p.category}</td>
-                                        <td className="p-3 border border-slate-300 text-center font-black text-slate-900">{p.qty.toLocaleString()} <span className="text-[9px] text-slate-500 font-bold uppercase ml-1">{p.unit || 'Bags'}</span></td>
-                                        <td className="p-3 border border-slate-300 text-right text-blue-700">{p.revenue.toLocaleString()}</td>
-                                        <td className="p-3 border border-slate-300 text-right text-emerald-600 font-black">{(p.revenue - p.cost).toLocaleString()}</td>
+                                        <td className="p-3 border border-slate-300 text-center text-slate-400 print:text-black">{index + 1}</td>
+                                        <td className="p-3 border border-slate-300 uppercase whitespace-nowrap text-slate-900 print:text-black">{p.id} - {p.name}</td>
+                                        <td className="p-3 border border-slate-300 whitespace-nowrap print:text-black">{p.category}</td>
+                                        <td className="p-3 border border-slate-300 text-center font-black text-slate-900 print:text-black">{p.qty.toLocaleString()} <span className="text-[9px] text-slate-500 font-bold uppercase ml-1 print:text-black">{p.unit || 'Bags'}</span></td>
+                                        <td className="p-3 border border-slate-300 text-right text-blue-700 print:text-black">{p.revenue.toLocaleString()}</td>
+                                        <td className="p-3 border border-slate-300 text-right text-emerald-600 font-black print:text-black">{(p.revenue - p.cost).toLocaleString()}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -321,49 +347,49 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
                         )}
 
                         {view === 'product_categories' && (
-                            <table className="w-full min-w-[800px] text-left border-collapse border border-slate-300">
+                            <table className="w-full text-left border-collapse border border-slate-300">
                             <thead className="bg-slate-100 text-slate-800 text-[10px] font-black uppercase tracking-widest border-b-2 border-slate-300">
                                 <tr><th className="p-3 border border-slate-300">Product Category & Details</th><th className="p-3 border border-slate-300 text-center whitespace-nowrap">Qty Sold</th><th className="p-3 border border-slate-300 text-right whitespace-nowrap">Revenue</th><th className="p-3 border border-slate-300 text-right whitespace-nowrap">Cost</th><th className="p-3 border border-slate-300 text-right font-black whitespace-nowrap">Profit</th></tr>
                             </thead>
                             {displayProductCategories?.map((cat: any) => (
                                 <tbody key={cat.category} className="text-xs font-bold text-slate-700 border-b-4 border-slate-400">
-                                    <tr className="bg-slate-200 text-slate-900 transition"><td className="p-3 border border-slate-300 uppercase whitespace-nowrap tracking-widest text-sm font-black text-blue-900 border-l-4 border-l-blue-600">{cat.category} (Total)</td><td className="p-3 border border-slate-300 text-center text-blue-900 font-black">{cat.totalQty.toLocaleString()}</td><td className="p-3 border border-slate-300 text-right text-blue-900 font-black">{cat.totalRevenue.toLocaleString()}</td><td className="p-3 border border-slate-300 text-right text-orange-700 font-black">{cat.totalCost.toLocaleString()}</td><td className="p-3 border border-slate-300 text-right font-black text-emerald-700 text-lg">{cat.totalProfit.toLocaleString()}</td></tr>
+                                    <tr className="bg-slate-200 text-slate-900 transition"><td className="p-3 border border-slate-300 uppercase whitespace-nowrap tracking-widest text-sm font-black text-blue-900 border-l-4 border-l-blue-600 print:text-black print:border-l-0">{cat.category} (Total)</td><td className="p-3 border border-slate-300 text-center text-blue-900 font-black print:text-black">{cat.totalQty.toLocaleString()}</td><td className="p-3 border border-slate-300 text-right text-blue-900 font-black print:text-black">{cat.totalRevenue.toLocaleString()}</td><td className="p-3 border border-slate-300 text-right text-orange-700 font-black print:text-black">{cat.totalCost.toLocaleString()}</td><td className="p-3 border border-slate-300 text-right font-black text-emerald-700 text-lg print:text-black">{cat.totalProfit.toLocaleString()}</td></tr>
                                     {cat.products.map((p: any) => (
                                         <tr key={p.id} className="hover:bg-slate-50 transition bg-white">
-                                            <td className="p-3 border border-slate-300 uppercase whitespace-nowrap text-slate-600 pl-6 border-l-4 border-l-transparent">↳ <span className="ml-2 text-slate-900">{p.id} - {p.name}</span></td>
-                                            <td className="p-3 border border-slate-300 text-center text-slate-700 font-bold">{p.qty.toLocaleString()} <span className="text-[9px] text-slate-400 font-black uppercase ml-1">{p.unit || 'Bags'}</span></td>
-                                            <td className="p-3 border border-slate-300 text-right text-blue-600">{p.revenue.toLocaleString()}</td>
-                                            <td className="p-3 border border-slate-300 text-right text-orange-500">{p.cost.toLocaleString()}</td>
-                                            <td className="p-3 border border-slate-300 text-right font-black text-emerald-600">{p.profit.toLocaleString()}</td>
+                                            <td className="p-3 border border-slate-300 uppercase whitespace-nowrap text-slate-600 pl-6 border-l-4 border-l-transparent print:pl-2 print:text-black">↳ <span className="ml-2 text-slate-900 print:text-black">{p.id} - {p.name}</span></td>
+                                            <td className="p-3 border border-slate-300 text-center text-slate-700 font-bold print:text-black">{p.qty.toLocaleString()} <span className="text-[9px] text-slate-400 font-black uppercase ml-1 print:text-black">{p.unit || 'Bags'}</span></td>
+                                            <td className="p-3 border border-slate-300 text-right text-blue-600 print:text-black">{p.revenue.toLocaleString()}</td>
+                                            <td className="p-3 border border-slate-300 text-right text-orange-500 print:text-black">{p.cost.toLocaleString()}</td>
+                                            <td className="p-3 border border-slate-300 text-right font-black text-emerald-600 print:text-black">{p.profit.toLocaleString()}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             ))}
-                            <tfoot className="bg-slate-900 text-white font-black text-xs">
+                            <tfoot className="bg-slate-900 text-white font-black text-xs print:bg-white print:text-black">
                                 <tr>
-                                    <td className="p-3 border border-slate-700 text-right uppercase tracking-widest">Grand Market Total:</td>
-                                    <td className="p-3 border border-slate-700 text-center">{displayProductCategories?.reduce((s:number,c:any)=>s+c.totalQty,0).toLocaleString()}</td>
-                                    <td className="p-3 border border-slate-700 text-right text-blue-300">{displayProductCategories?.reduce((s:number,c:any)=>s+c.totalRevenue,0).toLocaleString()}</td>
-                                    <td className="p-3 border border-slate-700 text-right text-orange-400">{displayProductCategories?.reduce((s:number,c:any)=>s+c.totalCost,0).toLocaleString()}</td>
-                                    <td className="p-3 border border-slate-700 text-right text-emerald-400 text-sm">{displayProductCategories?.reduce((s:number,c:any)=>s+c.totalProfit,0).toLocaleString()}</td>
+                                    <td className="p-3 border border-slate-700 text-right uppercase tracking-widest print:border-black">Grand Market Total:</td>
+                                    <td className="p-3 border border-slate-700 text-center print:border-black">{displayProductCategories?.reduce((s:number,c:any)=>s+c.totalQty,0).toLocaleString()}</td>
+                                    <td className="p-3 border border-slate-700 text-right text-blue-300 print:text-black print:border-black">{displayProductCategories?.reduce((s:number,c:any)=>s+c.totalRevenue,0).toLocaleString()}</td>
+                                    <td className="p-3 border border-slate-700 text-right text-orange-400 print:text-black print:border-black">{displayProductCategories?.reduce((s:number,c:any)=>s+c.totalCost,0).toLocaleString()}</td>
+                                    <td className="p-3 border border-slate-700 text-right text-emerald-400 text-sm print:text-black print:border-black">{displayProductCategories?.reduce((s:number,c:any)=>s+c.totalProfit,0).toLocaleString()}</td>
                                 </tr>
                             </tfoot>
                             </table>
                         )}
 
                         {view === 'inventory_list' && (
-                            <table className="w-full min-w-[700px] text-left border-collapse border border-slate-300">
+                            <table className="w-full text-left border-collapse border border-slate-300">
                             <thead className="bg-slate-100 text-slate-800 text-[10px] font-black uppercase tracking-widest border-b-2 border-slate-300">
                                 <tr><th className="p-3 border border-slate-300 w-12 text-center">Sr.</th><th className="p-3 border border-slate-300">Product Name</th><th className="p-3 border border-slate-300">Category</th><th className="p-3 border border-slate-300 text-right">Cost Price</th><th className="p-3 border border-slate-300 text-right">Selling Price</th></tr>
                             </thead>
                             <tbody className="text-xs font-bold text-slate-700">
                                 {displayInventory.map((p: any, index: number) => (
                                     <tr key={p.id} className="hover:bg-slate-50 transition">
-                                        <td className="p-3 border border-slate-300 text-center text-slate-400">{index + 1}</td>
-                                        <td className="p-3 border border-slate-300 uppercase text-slate-900">{p.id} - {p.name} <span className="text-[9px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded ml-2">{p.unit || 'Bags'}</span></td>
-                                        <td className="p-3 border border-slate-300">{p.category}</td>
-                                        <td className="p-3 border border-slate-300 text-right text-red-600">PKR {p.cost.toLocaleString()}</td>
-                                        <td className="p-3 border border-slate-300 text-right text-emerald-600 font-black">PKR {p.price?.toLocaleString() || 0}</td>
+                                        <td className="p-3 border border-slate-300 text-center text-slate-400 print:text-black">{index + 1}</td>
+                                        <td className="p-3 border border-slate-300 uppercase text-slate-900 print:text-black">{p.id} - {p.name} <span className="text-[9px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded ml-2 print:bg-white print:text-black print:border print:border-slate-300">{p.unit || 'Bags'}</span></td>
+                                        <td className="p-3 border border-slate-300 print:text-black">{p.category}</td>
+                                        <td className="p-3 border border-slate-300 text-right text-red-600 print:text-black">PKR {p.cost.toLocaleString()}</td>
+                                        <td className="p-3 border border-slate-300 text-right text-emerald-600 font-black print:text-black">PKR {p.price?.toLocaleString() || 0}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -371,17 +397,17 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
                         )}
 
                         {view === 'customer_list' && (
-                            <table className="w-full min-w-[700px] text-left border-collapse border border-slate-300">
+                            <table className="w-full text-left border-collapse border border-slate-300">
                             <thead className="bg-slate-100 text-slate-800 text-[10px] font-black uppercase tracking-widest border-b-2 border-slate-300">
                                 <tr><th className="p-3 border border-slate-300 w-12 text-center">Sr.</th><th className="p-3 border border-slate-300">Customer ID & Name</th><th className="p-3 border border-slate-300">Phone</th><th className="p-3 border border-slate-300">Address</th></tr>
                             </thead>
                             <tbody className="text-xs font-bold text-slate-700">
                                 {displayAllCustomers.map((c: any, index: number) => (
                                 <tr key={c.id} className="hover:bg-slate-50 transition">
-                                    <td className="p-3 border border-slate-300 text-center text-slate-400">{index + 1}</td>
-                                    <td className="p-3 border border-slate-300 uppercase text-slate-900 font-black">{c.id} - {c.name}</td>
-                                    <td className="p-3 border border-slate-300 text-blue-700">{c.phone || '---'}</td>
-                                    <td className="p-3 border border-slate-300 italic text-slate-500">{c.address || 'N/A'}</td>
+                                    <td className="p-3 border border-slate-300 text-center text-slate-400 print:text-black">{index + 1}</td>
+                                    <td className="p-3 border border-slate-300 uppercase text-slate-900 font-black print:text-black">{c.id} - {c.name}</td>
+                                    <td className="p-3 border border-slate-300 text-blue-700 print:text-black">{c.phone || '---'}</td>
+                                    <td className="p-3 border border-slate-300 italic text-slate-500 print:text-black">{c.address || 'N/A'}</td>
                                 </tr>
                                 ))}
                             </tbody>

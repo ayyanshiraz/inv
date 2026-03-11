@@ -43,37 +43,64 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
   const MIN_ROWS = 3;
 
   return (
-    <div className="bg-slate-200 min-h-screen py-10 block print:min-h-0 print:p-0 print:m-0 print:bg-white">
+    <div className="print-wrapper">
         
+        {/* ULTRA-SAFE BARE METAL PRINT ENGINE: No flex, no heights, no overflow math */}
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
           .urdu-text { font-family: 'Noto Nastaliq Urdu', serif; line-height: 1.8; font-weight: 700 !important; }
           
-          @media print {
-              @page { size: A5 portrait; margin: 6mm !important; }
-              body, html { margin: 0 !important; padding: 0 !important; background: white !important; display: block !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-              .no-print, aside, nav, header, [class*="fixed"] { display: none !important; }
-              
-              /* Removed all height constraints to stop Safari overflowing */
-              .invoice-page { 
-                  width: 148mm !important;
-                  margin: 0 auto !important; 
-                  padding: 5mm !important; 
-                  box-sizing: border-box !important;
-                  border: none !important; 
-                  display: block !important;
-                  page-break-after: always !important;
-                  page-break-inside: avoid !important;
-              }
-              .invoice-page:last-child {
-                  page-break-after: auto !important;
-              }
-          }
+          /* Web Interface Styling */
+          .print-wrapper { background-color: #e2e8f0; min-height: 100vh; padding: 2.5rem 0; }
+          .screen-invoice { width: 148mm; margin: 0 auto 2rem auto; background: white; padding: 5mm; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); color: black; display: block; }
           
           table { width: 100%; border-collapse: collapse; border: 1.5px solid black; }
           th, td { border: 1px solid black; padding: 4px 6px; color: black; }
           th { background-color: #e5e7eb; font-weight: 900; }
           .bold-border { border: 1.5px solid black !important; }
+
+          @media print {
+              @page { size: A5 portrait; margin: 5mm !important; }
+              
+              * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+              
+              /* CRITICAL SAFARI FIX: Reset everything to pure document flow */
+              html, body, .print-wrapper, .print-container {
+                  display: block !important;
+                  width: auto !important;
+                  height: auto !important;
+                  min-height: 0 !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: white !important;
+                  float: none !important;
+                  overflow: visible !important;
+              }
+              
+              .no-print, aside, nav, header { display: none !important; }
+              
+              .screen-invoice { 
+                  display: block !important;
+                  position: relative !important;
+                  width: auto !important;
+                  height: auto !important;
+                  margin: 0 !important; 
+                  padding: 0 !important; 
+                  border: none !important; 
+                  box-shadow: none !important;
+                  /* The only page break allowed. Removed avoid inside to stop Safari math loops */
+                  page-break-after: always !important; 
+                  break-after: page !important;
+              }
+              
+              .screen-invoice:last-of-type {
+                  page-break-after: auto !important;
+                  break-after: auto !important;
+              }
+              
+              /* Keeps table rows from splitting across pages safely */
+              tr { page-break-inside: avoid !important; }
+          }
         `}</style>
 
         <div className="no-print bg-white w-full max-w-[148mm] p-4 flex justify-between items-center shadow mb-6 rounded-xl border border-slate-200 mx-auto">
@@ -81,21 +108,23 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
             <PrintPageButton title="Print All A5" />
         </div>
 
-        <div className="w-full block print:w-full print:max-w-none print:m-0 print:p-0">
+        <div className="print-container">
             {(invoicesWithBalances || []).map((invoice, index) => {
                 const safeItems = invoice.items || [];
                 const subtotal = safeItems.reduce((sum: number, item: any) => sum + ((item.quantity || 0) * (item.price || 0)), 0);
                 const netTotal = invoice.totalAmount || 0;
                 const payment = invoice.paidAmount || 0;
                 const closingBalance = (invoice.prevBalance || 0) + (invoice.isReturn ? -netTotal : netTotal) - payment;
-                const emptyRows = Array.from({ length: Math.max(0, MIN_ROWS - safeItems.length) });
+                
+                const emptyRowCount = Math.max(0, MIN_ROWS - safeItems.length);
+                const emptyRows = Array.from({ length: emptyRowCount });
                 const repDetails = getUserDisplayDetails(invoice.user);
                 
                 const displayDate = new Date(invoice.createdAt).toLocaleDateString('en-GB', { timeZone: 'Asia/Karachi', day: '2-digit', month: '2-digit', year: 'numeric' });
                 const displayId = /^\d+$/.test(invoice.id) ? invoice.id : invoice.id.slice(-6).toUpperCase();
 
                 return (
-                    <div key={invoice.id} style={{ pageBreakAfter: index === invoicesWithBalances.length - 1 ? 'auto' : 'always' }} className="invoice-page bg-white w-[148mm] mx-auto p-[5mm] shadow-2xl text-black block mb-8 print:mb-0 print:shadow-none">
+                    <div key={invoice.id} className="screen-invoice">
                         
                         <div className="flex justify-between items-center mb-4">
                             <div className="w-16 h-16 flex items-center justify-center bg-white">
@@ -147,7 +176,7 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
                                         <td className="text-right align-middle py-2.5 text-sm font-black">{((item.quantity || 0) * (item.price || 0)).toLocaleString()}</td>
                                     </tr>
                                 ))}
-                                {(emptyRows || []).map((_, i) => (<tr key={`empty-${i}`}><td className="py-4 text-transparent">-</td><td></td><td></td><td></td><td></td><td></td></tr>))}
+                                {emptyRows.map((_, i) => (<tr key={`empty-${i}`}><td className="py-4 text-transparent">-</td><td></td><td></td><td></td><td></td><td></td></tr>))}
                             </tbody>
                         </table>
 
@@ -164,9 +193,9 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
                             </table>
                         </div>
 
-                        <div className="w-full text-center bg-white border-none pb-2 mt-4 pt-2">
-                            <h3 className="urdu-text text-[18px] font-black text-black z-10 text-center mb-0 leading-none">سیلز مین سے لین دین کے لئے رابطہ کریں</h3>
-                            <p className="font-black text-[12px] tracking-widest text-black z-10 mt-1">{repDetails.phone}</p>
+                        <div className="w-full text-center bg-white border-none mt-8 pt-4">
+                            <h3 className="urdu-text text-[18px] font-black text-black text-center mb-0 leading-none">سیلز مین سے لین دین کے لئے رابطہ کریں</h3>
+                            <p className="font-black text-[12px] tracking-widest text-black mt-1">{repDetails.phone}</p>
                         </div>
 
                     </div>
