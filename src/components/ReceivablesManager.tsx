@@ -1,13 +1,19 @@
 'use client'
 
 import { useState } from 'react'
-import { Search } from 'lucide-react'
+import { Search, Edit, Trash2, Save, X } from 'lucide-react'
+import { updateInvoice, deleteInvoice } from '@/actions/actions'
 
 export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+  
+  const [isSaving, setIsSaving] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draftAmount, setDraftAmount] = useState<number | ''>('')
+  const [draftNotes, setDraftNotes] = useState('')
 
   // Extract unique customer categories for the filter dropdown
   const categories = Array.from(new Set(vouchers.map(v => v.customer?.category).filter(Boolean)))
@@ -43,6 +49,44 @@ export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
     return `${day}/${month}/${year}`;
   }
 
+  const handleEditClick = (v: any) => {
+      setEditingId(v.id)
+      setDraftAmount(v.paidAmount || 0)
+      setDraftNotes(v.notes || '')
+  }
+
+  const handleCancelEdit = () => {
+      setEditingId(null)
+      setDraftAmount('')
+      setDraftNotes('')
+  }
+
+  const handleSaveEdit = async (v: any) => {
+      setIsSaving(true)
+      try {
+          await updateInvoice(v.id, {
+              paidAmount: Number(draftAmount) || 0,
+              notes: draftNotes
+          })
+          alert('Voucher updated successfully!')
+          setEditingId(null)
+      } catch (error) {
+          alert('Failed to update voucher. Please try again.')
+      } finally {
+          setIsSaving(false)
+      }
+  }
+
+  const handleDelete = async (id: string) => {
+      if (confirm('Are you sure you want to permanently delete this payment voucher? This will alter the customer\'s ledger balance.')) {
+          try {
+              await deleteInvoice(id)
+          } catch (error) {
+              alert('Failed to delete voucher.')
+          }
+      }
+  }
+
   return (
     <div className="bg-white p-6 rounded-3xl shadow-xl border border-slate-200">
         
@@ -70,7 +114,8 @@ export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
                         value={search} 
                         onChange={(e) => setSearch(e.target.value)} 
                         placeholder="Search name, ID, or notes..." 
-                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-900 outline-none focus:border-blue-500 transition" 
+                        dir="ltr"
+                        className="urdu-text text-left w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-900 outline-none focus:border-blue-500 transition" 
                     />
                 </div>
                 
@@ -78,7 +123,8 @@ export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
                 <select 
                     value={category} 
                     onChange={(e) => setCategory(e.target.value)} 
-                    className="py-2.5 px-3 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-900 outline-none focus:border-blue-500 transition cursor-pointer min-w-[150px]"
+                    dir="ltr"
+                    className="urdu-text text-left py-2.5 px-3 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-900 outline-none focus:border-blue-500 transition cursor-pointer min-w-[150px]"
                 >
                     <option value="">All Categories</option>
                     {categories.map((c: any) => <option key={c} value={c}>{c}</option>)}
@@ -116,35 +162,83 @@ export default function ReceivablesManager({ vouchers }: { vouchers: any[] }) {
             <table className="w-full text-left border-collapse whitespace-nowrap">
                 <thead className="bg-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-200">
                     <tr>
+                        <th className="p-4 w-12 text-center">Sr.</th>
                         <th className="p-4">Date</th>
                         <th className="p-4">Voucher #</th>
                         <th className="p-4">Customer</th>
                         <th className="p-4">Category</th>
                         <th className="p-4 min-w-[250px]">Notes / Comments</th>
                         <th className="p-4 text-right">Received</th>
+                        <th className="p-4 text-right w-28">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm font-bold text-slate-700">
-                    {filteredVouchers.length > 0 ? filteredVouchers.map((v: any) => (
-                        <tr key={v.id} className="hover:bg-slate-50 transition group">
+                    {filteredVouchers.length > 0 ? filteredVouchers.map((v: any, index: number) => (
+                        <tr key={v.id} className={`transition group ${editingId === v.id ? 'bg-blue-50' : 'hover:bg-slate-50'}`}>
+                            
+                            {/* Sr. Column */}
+                            <td className="p-4 text-center text-xs text-slate-400 font-black">{index + 1}</td>
+                            
                             <td className="p-4 text-xs">
                                 {new Date(v.createdAt).toLocaleDateString('en-GB', { timeZone: 'Asia/Karachi', day: '2-digit', month: '2-digit', year: 'numeric' })}
                             </td>
                             <td className="p-4 font-mono text-xs text-slate-500 uppercase">{/^\d+$/.test(v.id) ? v.id : v.id.slice(-6)}</td>
-                            <td className="p-4 text-slate-900 uppercase tracking-wide">{v.customer?.name}</td>
-                            <td className="p-4 text-xs uppercase tracking-widest text-blue-600">{v.customer?.category || '-'}</td>
+                            <td className="p-4 text-slate-900 uppercase tracking-wide urdu-text text-lg" dir="ltr">{v.customer?.name}</td>
+                            <td className="p-4 text-xs uppercase tracking-widest text-blue-600 urdu-text" dir="ltr">{v.customer?.category || '-'}</td>
+                            
+                            {/* Notes / Comments */}
                             <td className="p-4 whitespace-normal min-w-[250px]">
-                                <div className="text-sm urdu-text leading-relaxed max-w-sm" dir="auto">
-                                    {v.notes || <span className="text-slate-300 italic font-sans text-xs">No notes provided</span>}
-                                </div>
+                                {editingId === v.id ? (
+                                    <textarea 
+                                        value={draftNotes} 
+                                        onChange={(e) => setDraftNotes(e.target.value)} 
+                                        className="urdu-text w-full p-2 border-2 border-blue-300 rounded-lg outline-none focus:border-blue-600 text-sm resize-none"
+                                        rows={2}
+                                        dir="auto"
+                                    />
+                                ) : (
+                                    <div className="text-sm urdu-text leading-relaxed max-w-sm" dir="auto">
+                                        {v.notes || <span className="text-slate-300 italic font-sans text-xs uppercase tracking-widest">No notes provided</span>}
+                                    </div>
+                                )}
                             </td>
+                            
+                            {/* Received Amount */}
                             <td className="p-4 text-right text-emerald-600 font-black text-base">
-                                PKR {v.paidAmount.toLocaleString()}
+                                {editingId === v.id ? (
+                                    <div className="flex justify-end">
+                                        <input 
+                                            type="number" 
+                                            value={draftAmount} 
+                                            onChange={(e) => setDraftAmount(e.target.value === '' ? '' : Number(e.target.value))} 
+                                            className="w-32 p-2 border-2 border-emerald-300 rounded-lg text-right font-black outline-none focus:border-emerald-600 text-slate-900"
+                                            onFocus={(e) => e.target.select()}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(v) }}
+                                        />
+                                    </div>
+                                ) : (
+                                    <span>PKR {v.paidAmount.toLocaleString()}</span>
+                                )}
+                            </td>
+
+                            {/* Actions Column */}
+                            <td className="p-4 text-right">
+                                {editingId === v.id ? (
+                                    <div className="flex justify-end gap-2">
+                                        <button onClick={handleCancelEdit} disabled={isSaving} className="p-2 bg-white border border-slate-300 text-slate-500 rounded hover:bg-slate-100 transition disabled:opacity-50"><X size={16} /></button>
+                                        <button onClick={() => handleSaveEdit(v)} disabled={isSaving} className="p-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition disabled:opacity-50"><Save size={16} /></button>
+                                    </div>
+                                ) : (
+                                    <div className="flex justify-end gap-2">
+                                        <button onClick={() => handleEditClick(v)} className="p-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition"><Edit size={16} /></button>
+                                        <button onClick={() => handleDelete(v.id)} className="p-2 bg-red-50 text-red-600 rounded hover:bg-red-100 transition"><Trash2 size={16} /></button>
+                                    </div>
+                                )}
                             </td>
                         </tr>
                     )) : (
                         <tr>
-                            <td colSpan={6} className="p-12 text-center text-slate-400 font-bold uppercase tracking-widest text-sm">
+                            <td colSpan={8} className="p-12 text-center text-slate-400 font-bold uppercase tracking-widest text-sm">
                                 No payment vouchers found.
                             </td>
                         </tr>
