@@ -1,146 +1,238 @@
 'use client'
 
 import { useState } from 'react'
-import { saveProduct, deleteProduct } from '@/actions/actions'
+import { Search, Zap, Save, Trash2 } from 'lucide-react'
+// EXACT match to your backend actions
+import { saveProduct, deleteProduct } from '@/actions/actions' 
 
 export default function ProductManager({ products = [], categories = [] }: { products: any[], categories: any[] }) {
-  const [formData, setFormData] = useState({ id: '', name: '', category: '', unit: 'Bags', cost: 0, price: 0 })
-  const [isEditing, setIsEditing] = useState(false)
-  const [originalId, setOriginalId] = useState('')
+  const [search, setSearch] = useState('')
+  const [quickEditMode, setQuickEditMode] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
-  const handleEdit = (prod: any) => {
-    setFormData({ id: prod.id, name: prod.name, category: prod.category || '', unit: prod.unit || 'Bags', cost: prod.cost, price: prod.price })
-    setOriginalId(prod.id)
-    setIsEditing(true)
+  // Quick Edit States
+  const [draftCosts, setDraftCosts] = useState<Record<string, number>>({})
+  const [draftPrices, setDraftPrices] = useState<Record<string, number>>({})
+
+  // New Product Form State
+  const [newId, setNewId] = useState('')
+  const [newName, setNewName] = useState('')
+  const [newCat, setNewCat] = useState('')
+  const [newUnit, setNewUnit] = useState('توڑے') 
+  const [newCost, setNewCost] = useState('')
+  const [newPrice, setNewPrice] = useState('')
+
+  const units = ['توڑے', 'کلو', 'BAGS', 'KGS', 'CARTONS', 'PCS', 'DOZEN']
+
+  // Search Filter
+  const filteredProducts = products.filter(p => {
+      const q = search.toLowerCase()
+      return (p.name || '').toLowerCase().includes(q) || (p.id || '').toLowerCase().includes(q)
+  })
+
+  const handleAddProduct = async (e: React.FormEvent) => {
+      e.preventDefault()
+      setIsSaving(true)
+      try {
+          const formData = new FormData()
+          if (newId) formData.append('id', newId)
+          formData.append('name', newName)
+          formData.append('category', newCat)
+          formData.append('unit', newUnit)
+          formData.append('cost', newCost || '0')
+          formData.append('price', newPrice || '0')
+          
+          await saveProduct(formData)
+          
+          setNewId(''); setNewName(''); setNewCost(''); setNewPrice('');
+          alert('Product added successfully!')
+      } catch (err) {
+          alert('Error adding product.')
+      } finally {
+          setIsSaving(false)
+      }
+  }
+
+  const handleSaveQuickEdits = async () => {
+      setIsSaving(true)
+      try {
+          // Loop through all filtered products and save the ones that were changed
+          for (const p of filteredProducts) {
+              const updatedCost = draftCosts[p.id] !== undefined ? draftCosts[p.id] : p.cost
+              const updatedPrice = draftPrices[p.id] !== undefined ? draftPrices[p.id] : p.price
+              
+              if (updatedCost !== p.cost || updatedPrice !== p.price) {
+                  const formData = new FormData()
+                  formData.append('originalId', p.id) // Tells backend to UPDATE, not create
+                  formData.append('id', p.id)
+                  formData.append('name', p.name)
+                  formData.append('category', p.category || '')
+                  formData.append('unit', p.unit || 'Bags')
+                  formData.append('cost', updatedCost.toString())
+                  formData.append('price', updatedPrice.toString())
+                  
+                  await saveProduct(formData)
+              }
+          }
+          alert('All prices updated successfully!')
+          setQuickEditMode(false)
+          setDraftCosts({})
+          setDraftPrices({})
+      } catch (err) {
+          alert('Error saving updates.')
+      } finally {
+          setIsSaving(false)
+      }
   }
 
   const handleDelete = async (id: string) => {
-    if(confirm('Are you sure you want to delete this product?')) {
-        const res = await deleteProduct(id)
-        if (res?.error) {
-            alert(res.error)
-        }
-    }
+      if(confirm('Are you sure you want to delete this product?')) {
+          await deleteProduct(id)
+      }
   }
 
-  // Intercepts Enter key and moves focus instead of submitting early
+  // Intercepts Enter key and moves focus
   const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>, nextFieldId: string) => {
     if (e.key === 'Enter') {
         e.preventDefault();
-        if (nextFieldId === 'submit') {
-            document.getElementById('prod-submit-btn')?.click();
-        } else {
-            document.getElementById(nextFieldId)?.focus();
-        }
+        if (nextFieldId === 'submit') document.getElementById('prod-submit-btn')?.click();
+        else document.getElementById(nextFieldId)?.focus();
     }
   }
 
   return (
-    <div className="max-w-6xl mx-auto mt-10">
-      <div className="p-6 md:p-8 bg-white rounded-3xl shadow-xl border border-slate-200 mb-10">
-        <h1 className="text-2xl font-black mb-6 text-slate-900 uppercase tracking-tight">
-          {isEditing ? 'Edit Product' : 'Add New Product'}
-        </h1>
-        
-        <form action={async (data) => { 
-            const res = await saveProduct(data); 
-            if (res?.error) {
-                alert(res.error)
-            } else {
-                alert('Saved successfully!'); 
-                setFormData({id:'', name:'', category:'', unit:'Bags', cost:0, price:0}); 
-                setIsEditing(false); 
-                setOriginalId('');
-                document.getElementById('prod-id')?.focus(); // Jump back to start
-            }
-        }} className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          <input type="hidden" name="originalId" value={originalId} />
+    <div className="w-full space-y-8 relative">
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
+          @font-face { font-family: 'Jameel Noori Nastaleeq'; src: local('Jameel Noori Nastaleeq'), local('Jameel Noori Nastaleeq Regular'); }
+          .urdu-font { font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', sans-serif !important; line-height: 2 !important; }
+        `}</style>
 
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Product ID</label>
-            <input id="prod-id" type="text" name="id" value={formData.id} onChange={(e) => setFormData({...formData, id: e.target.value})}
-              onKeyDown={(e) => handleKeyDown(e, 'prod-name')} placeholder="e.g. PRD-001"
-              className="w-full rounded-xl border-2 bg-slate-50 border-slate-200 p-4 font-bold text-slate-900 outline-none focus:border-blue-600 uppercase"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Product Name</label>
-            <input id="prod-name" type="text" name="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} 
-              onKeyDown={(e) => handleKeyDown(e, 'prod-category')} required placeholder="e.g. Mash Daal"
-              className="w-full rounded-xl border-2 bg-slate-50 border-slate-200 p-4 font-bold text-slate-900 outline-none focus:border-blue-600 uppercase" />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Category</label>
-            <select id="prod-category" name="category" value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})}
-              onKeyDown={(e) => handleKeyDown(e, 'prod-unit')}
-              className="w-full rounded-xl border-2 bg-slate-50 border-slate-200 p-4 font-bold text-slate-900 outline-none focus:border-blue-600 uppercase">
-              <option value="">No Category</option>
-              {categories && categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Unit</label>
-            <select id="prod-unit" name="unit" value={formData.unit} onChange={(e) => setFormData({...formData, unit: e.target.value})}
-              onKeyDown={(e) => handleKeyDown(e, 'prod-cost')}
-              className="w-full rounded-xl border-2 bg-slate-50 border-slate-200 p-4 font-bold text-slate-900 outline-none focus:border-blue-600 uppercase">
-              <option value="Bags">Bags</option>
-              <option value="Kgs">Kgs</option>
-            </select>
-          </div>
-
-          <div className="md:col-span-3 grid grid-cols-2 gap-6 bg-emerald-50 p-4 rounded-xl border border-emerald-200">
-            <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-emerald-800 mb-2">Cost Price</label>
-                <input id="prod-cost" type="number" name="cost" value={formData.cost} onChange={(e) => setFormData({...formData, cost: Number(e.target.value)})} 
-                onKeyDown={(e) => handleKeyDown(e, 'prod-price')} placeholder="0"
-                className="w-full rounded-xl border-2 bg-white border-emerald-300 p-4 font-black text-slate-900 outline-none focus:border-emerald-600 text-lg" />
+        {/* ADD NEW PRODUCT FORM */}
+        <form onSubmit={handleAddProduct} className="bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-slate-200">
+            <h2 className="text-xl font-black uppercase text-slate-900 mb-6">Add New Product</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Product ID (Optional)</label>
+                    <input id="new-id" type="text" value={newId} onChange={e => setNewId(e.target.value)} onKeyDown={(e) => handleKeyDown(e, 'new-name')} placeholder="E.G. PRD-001" className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600 uppercase" />
+                </div>
+                <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Product Name</label>
+                    <input id="new-name" type="text" value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={(e) => handleKeyDown(e, 'new-cat')} required dir="ltr" placeholder="E.G. MASH DAAL" className="urdu-font text-left w-full p-3 bg-white border-2 border-slate-300 rounded-xl font-black text-slate-900 outline-none focus:border-blue-600 transition uppercase" />
+                </div>
             </div>
-            <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-emerald-800 mb-2">Selling Price</label>
-                <input id="prod-price" type="number" name="price" value={formData.price} onChange={(e) => setFormData({...formData, price: Number(e.target.value)})} 
-                onKeyDown={(e) => handleKeyDown(e, 'submit')} placeholder="0"
-                className="w-full rounded-xl border-2 bg-white border-emerald-300 p-4 font-black text-emerald-700 outline-none focus:border-emerald-600 text-lg" />
-            </div>
-          </div>
 
-          <div className="md:col-span-3 mt-4 flex gap-4">
-              <button id="prod-submit-btn" type="submit" className="flex-1 py-4 px-4 rounded-xl shadow-lg font-black uppercase tracking-widest text-white bg-slate-900 hover:bg-black transition">
-                {isEditing ? 'Update Product' : 'Save Product'}
-              </button>
-              {isEditing && (
-                  <button type="button" onClick={() => { setIsEditing(false); setFormData({id:'', name:'', category:'', unit:'Bags', cost:0, price:0}); setOriginalId(''); }} className="px-8 rounded-xl font-black uppercase tracking-widest text-slate-600 bg-slate-200 hover:bg-slate-300 transition">Cancel</button>
-              )}
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Category</label>
+                    <select id="new-cat" value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={(e) => handleKeyDown(e, 'new-unit')} className="urdu-font text-left w-full p-3 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600 uppercase">
+                        <option value="">No Category</option>
+                        {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Unit</label>
+                    <select id="new-unit" value={newUnit} onChange={e => setNewUnit(e.target.value)} onKeyDown={(e) => handleKeyDown(e, 'new-cost')} className="urdu-font text-left w-full p-3 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600 uppercase">
+                        {units.map(u => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                </div>
+            </div>
+
+            <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label className="text-[10px] font-black uppercase text-emerald-700 mb-2 block">Cost Price (PKR)</label>
+                    <input id="new-cost" type="number" value={newCost} onChange={e => setNewCost(e.target.value)} onKeyDown={(e) => handleKeyDown(e, 'new-price')} placeholder="0" className="w-full p-3 bg-white border border-emerald-300 rounded-xl font-black text-slate-900 outline-none focus:border-emerald-600" />
+                </div>
+                <div>
+                    <label className="text-[10px] font-black uppercase text-emerald-700 mb-2 block">Selling Price (PKR)</label>
+                    <input id="new-price" type="number" value={newPrice} onChange={e => setNewPrice(e.target.value)} onKeyDown={(e) => handleKeyDown(e, 'submit')} placeholder="0" className="w-full p-3 bg-white border border-emerald-300 rounded-xl font-black text-emerald-700 outline-none focus:border-emerald-600" />
+                </div>
+            </div>
+
+            <button id="prod-submit-btn" type="submit" disabled={isSaving} className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest hover:bg-black transition disabled:opacity-50">
+                {isSaving ? 'Saving...' : 'Save Product'}
+            </button>
         </form>
-      </div>
 
-      <div className="bg-white rounded-3xl shadow-sm overflow-hidden border border-slate-200">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b-2 border-slate-200">
-            <tr><th className="p-4">ID</th><th className="p-4">Name</th><th className="p-4">Category</th><th className="p-4 text-center">Unit</th><th className="p-4 text-right">Cost</th><th className="p-4 text-right">Price</th><th className="p-4 text-right">Actions</th></tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 text-sm font-bold text-slate-700">
-            {products && products.length > 0 ? products.map((p) => (
-              <tr key={p.id} className="hover:bg-slate-50 transition">
-                <td className="p-4 font-mono text-xs text-slate-400 uppercase">{p.id}</td>
-                <td className="p-4 uppercase text-slate-900">{p.name}</td>
-                <td className="p-4 uppercase">{p.category || '-'}</td>
-                <td className="p-4 text-center uppercase text-xs">{p.unit || 'BAGS'}</td>
-                <td className="p-4 text-right text-red-600">{p.cost.toLocaleString()}</td>
-                <td className="p-4 text-right text-emerald-600 font-black">{p.price.toLocaleString()}</td>
-                <td className="p-4 text-right">
-                  <button onClick={() => handleEdit(p)} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded mr-2 hover:bg-blue-100 uppercase text-[10px] font-black tracking-widest transition">Edit</button>
-                  <button onClick={() => handleDelete(p.id)} className="px-3 py-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100 uppercase text-[10px] font-black tracking-widest transition">Delete</button>
-                </td>
-              </tr>
-            )) : <tr><td colSpan={7} className="p-8 text-center text-slate-400">No products found.</td></tr>}
-          </tbody>
-        </table>
-      </div>
+        {/* PRODUCTS TABLE */}
+        <div className="bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-slate-200">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                <div className="relative w-full md:w-72">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input type="text" placeholder="Search product or ID..." value={search} onChange={e => setSearch(e.target.value)} dir="ltr" className="urdu-font text-left w-full pl-10 p-3 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600" />
+                </div>
+                
+                <div className="flex gap-3 w-full md:w-auto">
+                    {!quickEditMode ? (
+                        <button type="button" onClick={() => setQuickEditMode(true)} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200">
+                            <Zap size={16} /> Quick Edit Prices
+                        </button>
+                    ) : (
+                        <>
+                            <button type="button" onClick={() => { setQuickEditMode(false); setDraftCosts({}); setDraftPrices({}); }} className="px-6 py-3 rounded-xl text-xs font-black uppercase bg-slate-200 text-slate-700 hover:bg-slate-300">Cancel</button>
+                            <button type="button" onClick={handleSaveQuickEdits} disabled={isSaving} className="flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg">
+                                <Save size={16} /> {isSaving ? 'Saving...' : 'Save Edits'}
+                            </button>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b-2 border-slate-200">
+                        <tr>
+                            <th className="p-4">ID</th>
+                            <th className="p-4">Name</th>
+                            <th className="p-4">Category</th>
+                            <th className="p-4 text-center">Unit</th>
+                            <th className={`p-4 text-right ${quickEditMode ? 'bg-orange-100 text-orange-800 border-b-4 border-orange-400' : ''}`}>Cost</th>
+                            <th className={`p-4 text-right ${quickEditMode ? 'bg-emerald-100 text-emerald-800 border-b-4 border-emerald-400' : ''}`}>Price</th>
+                            <th className="p-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="text-sm font-bold text-slate-700 divide-y divide-slate-100">
+                        {filteredProducts.map((p, index) => (
+                            <tr key={p.id} className="hover:bg-slate-50 transition">
+                                <td className="p-4 font-mono text-xs uppercase">{p.id.slice(-6)}</td>
+                                <td className="p-4 urdu-font text-slate-900 font-black text-base" dir="ltr">{p.name}</td>
+                                <td className="p-4 urdu-font" dir="ltr">{p.category || '---'}</td>
+                                <td className="p-4 text-center"><span className="urdu-font text-left text-[10px] bg-slate-200 px-2 py-1 rounded text-slate-600">{p.unit}</span></td>
+                                
+                                {/* QUICK EDIT COST */}
+                                <td className={`p-4 text-right ${quickEditMode ? 'bg-orange-50' : ''}`}>
+                                    {quickEditMode ? (
+                                        <input type="number" id={`cost-${index}`} className="w-24 p-2 text-right border-2 border-orange-300 rounded-lg font-black text-slate-900 outline-none focus:border-orange-600"
+                                            value={draftCosts[p.id] !== undefined ? draftCosts[p.id] : p.cost}
+                                            onChange={e => setDraftCosts({...draftCosts, [p.id]: Number(e.target.value)})}
+                                            onFocus={e => e.target.select()}
+                                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById(`price-${index}`)?.focus(); } }}
+                                        />
+                                    ) : <span className="text-red-600">{p.cost.toLocaleString()}</span>}
+                                </td>
+
+                                {/* QUICK EDIT PRICE */}
+                                <td className={`p-4 text-right ${quickEditMode ? 'bg-emerald-50' : ''}`}>
+                                    {quickEditMode ? (
+                                        <input type="number" id={`price-${index}`} className="w-24 p-2 text-right border-2 border-emerald-300 rounded-lg font-black text-emerald-700 outline-none focus:border-emerald-600"
+                                            value={draftPrices[p.id] !== undefined ? draftPrices[p.id] : p.price}
+                                            onChange={e => setDraftPrices({...draftPrices, [p.id]: Number(e.target.value)})}
+                                            onFocus={e => e.target.select()}
+                                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById(`cost-${index + 1}`)?.focus(); } }}
+                                        />
+                                    ) : <span className="text-emerald-600 font-black">{p.price.toLocaleString()}</span>}
+                                </td>
+
+                                <td className="p-4 text-right">
+                                    <button onClick={() => handleDelete(p.id)} className="p-2 bg-red-50 text-red-600 rounded hover:bg-red-100 transition"><Trash2 size={16} /></button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
   )
 }

@@ -40,6 +40,7 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
     setToDate(endStr);
   }
 
+  // Automatically sort by descending date (newest first)
   const filteredInvoices = invoices.filter(inv => {
     let match = true
     if (search) {
@@ -55,7 +56,7 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
     if (fromDate) match = match && (new Date(inv.createdAt) >= new Date(fromDate))
     if (toDate) match = match && (new Date(inv.createdAt) <= new Date(toDate + 'T23:59:59'))
     return match
-  })
+  }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
   const handleSelectAll = (e: any) => {
     if (e.target.checked) setSelectedIds(filteredInvoices.map(i => i.id))
@@ -94,7 +95,6 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
                  `*Items:*\n${itemsText}\n` +
                  `------------------------\n` +
                  `Net Total: PKR ${invoiceTotal.toLocaleString()}\n` +
-                 `Discount: PKR ${(inv.discountAmount || 0).toLocaleString()}\n` +
                  `Paid: PKR ${paid.toLocaleString()}\n` +
                  `------------------------\n` +
                  `Previous Balance: PKR ${previous.toLocaleString()}\n` +
@@ -124,15 +124,6 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
     window.open(`/print/bulk?ids=${idsString}`, '_blank');
   }
 
-  const handleBulkDelete = async () => {
-    if (selectedIds.length === 0) return;
-    if (confirm(`WARNING: Are you sure you want to permanently delete ${selectedIds.length} invoices?`)) {
-        for (const id of selectedIds) await deleteInvoice(id);
-        setSelectedIds([]);
-        alert('Selected invoices deleted successfully.');
-    }
-  }
-
   const handleBulkActive = async () => { if(confirm(`Convert ${selectedIds.length} quotations to active invoices?`)) { await bulkMakeActive(selectedIds); setSelectedIds([]) } }
   
   const handleSaveRecovery = async () => {
@@ -154,7 +145,20 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
   return (
     <div className="bg-white p-4 md:p-8 rounded-2xl shadow-xl border border-slate-200">
       
+      {/* CSS For Safari Dates & Urdu Fonts */}
       <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
+          
+          @font-face {
+              font-family: 'Jameel Noori Nastaleeq';
+              src: local('Jameel Noori Nastaleeq'), local('JameelNooriNastaleeq'), local('Jameel Noori Nastaleeq Regular');
+          }
+
+          .urdu-font { 
+              font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', Arial, sans-serif !important; 
+              line-height: 2 !important;
+          }
+
           .safari-date-killer::-webkit-datetime-edit { color: transparent !important; }
           .safari-date-killer::-webkit-datetime-edit-fields-wrapper { color: transparent !important; }
           .safari-date-killer::-webkit-datetime-edit-text { color: transparent !important; }
@@ -178,9 +182,9 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
 
           <div className="relative flex-1 md:flex-none">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" placeholder="Search name or ID..." value={search} onChange={e => setSearch(e.target.value)} className="w-full md:w-48 pl-8 p-2.5 text-xs font-bold text-slate-900 outline-none bg-white rounded-lg border border-slate-200 focus:border-blue-500" />
+              <input type="text" placeholder="Search name or ID..." value={search} onChange={e => setSearch(e.target.value)} dir="ltr" className="urdu-font text-left w-full md:w-48 pl-8 p-2.5 text-xs font-bold text-slate-900 outline-none bg-white rounded-lg border border-slate-200 focus:border-blue-500" />
           </div>
-          <select value={category} onChange={e => setCategory(e.target.value)} className="p-2.5 text-xs font-bold text-slate-900 outline-none bg-white rounded-lg border border-slate-200 flex-1 md:flex-none">
+          <select value={category} onChange={e => setCategory(e.target.value)} dir="ltr" className="urdu-font text-left p-2.5 text-xs font-bold text-slate-900 outline-none bg-white rounded-lg border border-slate-200 flex-1 md:flex-none">
               <option value="">All Categories</option>
               {categories.map((c: any) => <option key={c.id} value={c.name}>{c.name}</option>)}
           </select>
@@ -211,7 +215,7 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
                   <h3 className="font-black uppercase tracking-widest text-sm flex items-center gap-2">
                       <MessageCircle size={18} /> WhatsApp Sending Queue ({waIndex + 1} of {waQueue.length})
                   </h3>
-                  <p className="text-xs font-bold mt-1">Ready to send to: <span className="uppercase font-black text-green-700 bg-white px-2 py-0.5 rounded">{waQueue[waIndex].customer.name}</span></p>
+                  <p className="text-xs font-bold mt-1">Ready to send to: <span className="uppercase font-black text-green-700 bg-white px-2 py-0.5 rounded urdu-font">{waQueue[waIndex].customer.name}</span></p>
               </div>
               <div className="flex gap-3 w-full md:w-auto">
                   <button onClick={sendNextInQueue} className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg font-black uppercase tracking-widest hover:bg-green-700 transition shadow"><Send size={16} /> Send & Next</button>
@@ -241,7 +245,6 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
                   <div className="flex gap-3">
                       <button onClick={handleBulkWhatsApp} className="flex items-center gap-2 bg-green-500 text-white border border-green-400 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[10px] md:text-xs font-black uppercase hover:bg-green-600 transition"><MessageCircle size={14}/> WhatsApp</button>
                       <button onClick={handleBulkPrint} className="flex items-center gap-2 bg-indigo-500 text-white border border-indigo-400 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[10px] md:text-xs font-black uppercase hover:bg-indigo-600 transition"><Printer size={14}/> Bulk Print</button>
-                      <button onClick={handleBulkDelete} className="flex items-center gap-2 bg-red-500 text-white border border-red-400 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[10px] md:text-xs font-black uppercase hover:bg-red-600 transition"><Trash2 size={14}/> Delete</button>
                       {isHoldView && (
                           <button onClick={handleBulkActive} className="flex items-center gap-2 bg-white text-orange-600 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[10px] md:text-xs font-black uppercase hover:bg-orange-50 transition"><PlayCircle size={14}/> Make Active</button>
                       )}
@@ -276,10 +279,10 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
                 </td>
                 <td className="p-4 text-xs text-slate-500">{new Date(inv.createdAt).toLocaleDateString('en-GB', {timeZone: 'Asia/Karachi'})} <br/>{new Date(inv.createdAt).toLocaleTimeString('en-US', {timeZone: 'Asia/Karachi'})}</td>
                 <td className="p-4 uppercase text-slate-900">
-                    <div className="font-black">{inv.customer.name}</div>
-                    <div className="text-[9px] text-slate-400 font-mono lowercase mt-0.5">ID: {inv.customer.id}</div>
+                    <div className="font-black urdu-font text-left" dir="ltr">{inv.customer.name}</div>
+                    <div className="text-[9px] text-slate-400 font-mono lowercase mt-0.5 font-sans">ID: {inv.customer.id}</div>
                 </td>
-                <td className="p-4 text-xs text-center">{inv.customer.category || '---'}</td>
+                <td className="p-4 text-xs text-center urdu-font" dir="ltr">{inv.customer.category || '---'}</td>
                 <td className={`p-4 text-right font-black ${inv.isReturn ? 'text-red-600' : 'text-blue-700'}`}>PKR {inv.totalAmount.toLocaleString()}</td>
                 
                 <td className={`p-4 text-right ${recoveryMode && !inv.isReturn ? 'bg-orange-50' : ''}`}>
@@ -332,7 +335,18 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
                     <Link href={`/print/${inv.id}`} target="_blank" className="p-2 bg-slate-100 text-slate-600 rounded hover:bg-slate-200 transition" title="View Invoice"><Eye size={16} /></Link>
                     <Link href={`/print/${inv.id}`} target="_blank" className="p-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition" title="Print Invoice"><Printer size={16} /></Link>
                     <Link href={`/invoice/edit/${inv.id}`} className="p-2 bg-orange-50 text-orange-600 rounded hover:bg-orange-100 transition" title="Edit Invoice"><Edit size={16} /></Link>
-                    <form action={deleteInvoice.bind(null, inv.id)}><button className="p-2 bg-red-50 text-red-600 rounded hover:bg-red-100 transition" title="Delete Invoice"><Trash2 size={16} /></button></form>
+                    
+                    <form 
+                        action={deleteInvoice.bind(null, inv.id)} 
+                        onSubmit={(e) => {
+                            if (!confirm('Are you sure you wish to permanently delete this invoice?')) {
+                                e.preventDefault();
+                            }
+                        }}
+                    >
+                        <button type="submit" className="p-2 bg-red-50 text-red-600 rounded hover:bg-red-100 transition" title="Delete Invoice"><Trash2 size={16} /></button>
+                    </form>
+
                   </div>
                 </td>
               </tr>

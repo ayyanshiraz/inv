@@ -40,208 +40,173 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
       return { ...invoice, prevBalance };
   });
 
-  const MIN_ROWS = 3;
+  const MIN_ROWS = 2;
 
   return (
-    <div className="print-wrapper">
+    <div className="bg-slate-200 min-h-screen py-10 block print:bg-white print:p-0 print:m-0">
         
-        {/* ULTRA-SAFE BARE METAL PRINT ENGINE: No flex math, no inside-breaks, pure block flow */}
-        <style dangerouslySetInnerHTML={{ __html: `
+        <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
+          @font-face { font-family: 'Jameel Noori Nastaleeq'; src: local('Jameel Noori Nastaleeq'), local('Jameel Noori Nastaleeq Regular'); }
           
           .urdu-text { font-family: 'Noto Nastaliq Urdu', serif; line-height: 1.8; font-weight: 700 !important; }
+          .jameel-font { font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif !important; }
           
-          /* Web Interface Styling */
-          .print-wrapper { background-color: #e2e8f0; min-height: 100vh; padding: 2.5rem 0; }
-          .screen-invoice { width: 148mm; margin: 0 auto 2rem auto; background: white; padding: 5mm; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); color: black; display: block; }
+          @media print {
+              /* Forced exact mm dimensions to bypass browser A5 bugs */
+              @page { size: 148mm 210mm; margin: 5mm !important; }
+              body, html { margin: 0 !important; padding: 0 !important; background: white !important; display: block !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              .no-print, aside, nav, header, [class*="fixed"] { display: none !important; }
+              
+              .invoice-page { 
+                  width: 148mm !important; 
+                  margin: 0 auto !important; 
+                  padding: 0 !important; 
+                  box-sizing: border-box !important;
+                  border: none !important; 
+                  display: block !important;
+                  page-break-inside: avoid !important;
+                  page-break-after: always !important; /* Critical for bulk print breaks */
+              }
+              .invoice-page:last-of-type {
+                  page-break-after: auto !important;
+              }
+          }
           
           table { width: 100%; border-collapse: collapse; border: 1.5px solid black; }
-          th, td { border: 1px solid black; padding: 4px 6px; color: black; }
+          th, td { border: 1px solid black; padding: 3px 4px; color: black; }
           th { background-color: #e5e7eb; font-weight: 900; }
           .bold-border { border: 1.5px solid black !important; }
+        `}</style>
 
-          @media print {
-              @page { size: A5 portrait; margin: 5mm !important; }
-              
-              * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-              
-              /* CRITICAL SAFARI FIX: Reset all roots to completely unbound block flow */
-              html, body, .print-wrapper, .print-container {
-                  display: block !important;
-                  width: 100% !important;
-                  height: auto !important;
-                  min-height: 0 !important;
-                  margin: 0 !important;
-                  padding: 0 !important;
-                  background: white !important;
-                  overflow: visible !important;
-              }
-              
-              .no-print, aside, nav, header { display: none !important; }
-              
-              .screen-invoice { 
-                  display: block !important;
-                  width: 148mm !important;
-                  height: auto !important;
-                  margin: 0 auto !important; 
-                  padding: 5mm !important; 
-                  border: none !important; 
-                  box-shadow: none !important;
-                  page-break-after: always !important; 
-                  break-after: page !important;
-              }
-              
-              .screen-invoice:last-of-type {
-                  page-break-after: auto !important;
-                  break-after: auto !important;
-              }
-              
-              /* Safe Table Rendering */
-              table { display: table !important; page-break-inside: auto !important; }
-              tr { display: table-row !important; page-break-inside: avoid !important; }
-              th, td { display: table-cell !important; }
-          }
-        `}} />
-
-        <div className="no-print" style={{ backgroundColor: 'white', width: '100%', maxWidth: '148mm', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 auto 24px auto', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-            <h1 style={{ fontWeight: 900, fontSize: '14px', color: '#1e293b', textTransform: 'uppercase', margin: 0 }}>Bulk Print ({(invoicesWithBalances || []).length})</h1>
-            {/* Using your custom print component to handle the click logic properly */}
+        <div className="no-print bg-white w-full max-w-[148mm] p-4 flex justify-between items-center shadow mb-6 rounded-xl border border-slate-200 mx-auto">
+            <h1 className="font-black text-sm text-slate-800">Bulk Print Preview ({invoicesWithBalances.length})</h1>
             <PrintPageButton title="Print All A5" />
         </div>
 
-        <div className="print-container">
-            {(invoicesWithBalances || []).map((invoice, index) => {
-                const safeItems = invoice.items || [];
-                const subtotal = safeItems.reduce((sum: number, item: any) => sum + ((item.quantity || 0) * (item.price || 0)), 0);
-                const netTotal = invoice.totalAmount || 0;
+        <div className="w-full block print:w-full print:max-w-none print:m-0 print:p-0">
+            {invoicesWithBalances.map((invoice, index) => {
+                const prevBalance = invoice.prevBalance || 0;
+                const subtotal = invoice.items.reduce((sum: number, item: any) => sum + (item.quantity * item.price), 0);
+                const netTotal = invoice.totalAmount;
                 const payment = invoice.paidAmount || 0;
-                const closingBalance = (invoice.prevBalance || 0) + (invoice.isReturn ? -netTotal : netTotal) - payment;
-                
-                const emptyRowCount = Math.max(0, MIN_ROWS - safeItems.length);
-                const emptyRows = Array.from({ length: emptyRowCount });
+                const closingBalance = prevBalance + (invoice.isReturn ? -netTotal : netTotal) - payment;
+
+                const emptyRowsCount = Math.max(0, MIN_ROWS - invoice.items.length);
+                const emptyRows = Array.from({ length: emptyRowsCount });
+
                 const repDetails = getUserDisplayDetails(invoice.user);
-                
                 const displayDate = new Date(invoice.createdAt).toLocaleDateString('en-GB', { timeZone: 'Asia/Karachi', day: '2-digit', month: '2-digit', year: 'numeric' });
                 const displayId = /^\d+$/.test(invoice.id) ? invoice.id : invoice.id.slice(-6).toUpperCase();
 
                 return (
-                    <div key={invoice.id} className="screen-invoice">
+                    <div key={invoice.id} className="invoice-page bg-white w-[148mm] mx-auto p-[5mm] shadow-2xl text-black block mb-8 print:shadow-none print:m-0">
                         
-                        <table style={{ width: '100%', border: 'none', marginBottom: '16px' }}>
-                            <tbody>
-                                <tr>
-                                    <td style={{ width: '64px', border: 'none', padding: '0', verticalAlign: 'middle' }}>
-                                        <img src="/logo.png" alt="Logo" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
-                                    </td>
-                                    <td style={{ textAlign: 'center', border: 'none', padding: '0 8px', verticalAlign: 'middle' }}>
-                                        <p style={{ margin: 0, fontSize: '12px' }} className="urdu-text">کاروبار حلال - سود حرام</p>
-                                        <h1 style={{ margin: '2px 0 0 0', fontSize: '24px', fontWeight: 900, textTransform: 'uppercase', color: 'black', lineHeight: 1 }}>Fahad Traders</h1>
-                                        <p style={{ margin: '4px 0 0 0', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'black' }}>
-                                            {repDetails.name} <span style={{ marginLeft: '4px' }}>{repDetails.phone}</span>
-                                        </p>
-                                    </td>
-                                    <td style={{ minWidth: '100px', textAlign: 'right', border: 'none', padding: '0', verticalAlign: 'middle', fontSize: '10px', fontWeight: 700, color: 'black' }}>
-                                        <p style={{ margin: '0 0 2px 0', fontSize: '12px', fontWeight: 900 }}>Inv# {displayId}</p>
-                                        <p style={{ margin: 0 }}>Date: {displayDate}</p>
-                                        <p style={{ margin: 0, fontSize: '11px' }} className="urdu-text">تاریخ</p>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div className="flex justify-between items-center mb-3">
+                            <div className="w-16 h-16 flex items-center justify-center bg-white">
+                                <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+                            </div>
+                            <div className="text-center flex-1 px-2">
+                                <p className="text-[12px] urdu-text mb-0">کاروبار حلال - سود حرام</p>
+                                <h1 className="text-2xl font-black uppercase tracking-tighter text-black leading-none mt-1">Fahad Traders</h1>
+                                <p className="font-bold text-[9px] mt-1 text-black uppercase tracking-widest">{repDetails.name} <span className="ml-1">{repDetails.phone}</span></p>
+                            </div>
+                            <div className="text-right font-bold text-black min-w-[110px]">
+                                <p className="mb-0.5 text-[15px] font-black">Inv# {displayId}</p>
+                                <p className="text-[13px] m-0 font-black">Date: {displayDate}</p>
+                                <p className="urdu-text m-0 text-[14px]">تاریخ</p>
+                            </div>
+                        </div>
 
-                        <div className="bold-border" style={{ width: '65%', marginBottom: '12px', display: 'block' }}>
+                        {/* Crash-Proof Bill To Box (No absolute positioning) */}
+                        <div className="bold-border" style={{ width: '65%', marginBottom: '3px', display: 'block' }}>
                             <table style={{ width: '100%', border: 'none' }}>
                                 <tbody>
                                     <tr>
-                                        <td style={{ backgroundColor: '#e5e7eb', borderBottom: '1.5px solid black', padding: '2px 8px', fontWeight: 900, fontSize: '10px', borderTop: 'none', borderLeft: 'none', borderRight: 'none' }}>
+                                        <td style={{ backgroundColor: '#e5e7eb', borderBottom: '1.5px solid black', padding: '2px 6px', fontWeight: 900, fontSize: '10px', borderTop: 'none', borderLeft: 'none', borderRight: 'none' }}>
                                             <div style={{ display: 'table', width: '100%' }}>
                                                 <div style={{ display: 'table-cell', textAlign: 'left' }}>Bill To:</div>
-                                                <div style={{ display: 'table-cell', textAlign: 'right', fontSize: '13px' }} className="urdu-text">خریدار:</div>
+                                                <div style={{ display: 'table-cell', textAlign: 'right', fontSize: '12px' }} className="urdu-text">خریدار:</div>
                                             </div>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td style={{ backgroundColor: 'white', padding: '8px', border: 'none' }}>
-                                            <h2 style={{ margin: 0, fontWeight: 900, fontSize: '17px', textTransform: 'uppercase', color: 'black', lineHeight: 1.1 }}>{invoice.customer?.name || 'Unknown'}</h2>
-                                            <p style={{ margin: '2px 0 0 0', fontWeight: 700, color: 'black', fontSize: '13px' }}>
-                                                {invoice.customer?.phone || '---'}
-                                                <span style={{ fontSize: '8px', fontFamily: 'monospace', color: '#6b7280', marginLeft: '8px', backgroundColor: '#f3f4f6', padding: '1px 4px', borderRadius: '4px', border: '1px solid #d1d5db' }}>ID: {invoice.customer?.id || 'N/A'}</span>
-                                            </p>
-                                            <p style={{ margin: '2px 0 0 0', fontWeight: 700, fontSize: '10px', color: '#1f2937', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{invoice.customer?.address || 'NO ADDRESS PROVIDED'}</p>
-                                            <p style={{ margin: '6px 0 0 0', fontSize: '9px', fontWeight: 700, color: '#374151' }}>
-                                                Category: <span style={{ color: 'black', textTransform: 'uppercase', marginRight: '12px' }}>{invoice.customer?.category || 'N/A'}</span>
-                                                User / تیار کنندہ: <span style={{ color: 'black', textTransform: 'uppercase' }}>{repDetails.name}</span>
-                                            </p>
+                                        <td style={{ backgroundColor: 'white', padding: '0', border: 'none' }}>
+                                            <table style={{ width: '100%', border: 'none' }}>
+                                                <tbody>
+                                                    <tr>
+                                                        <td style={{ border: 'none', padding: '4px 6px', verticalAlign: 'top' }}>
+                                                            <h2 className="jameel-font" style={{ margin: 0, fontWeight: 900, fontSize: '16px', textTransform: 'uppercase', color: 'black', lineHeight: 1.2, textAlign: 'left' }} dir="ltr">
+                                                                {invoice.customer?.name || 'Unknown'}
+                                                            </h2>
+                                                            <p className="font-bold text-black mt-0 text-[11px]">
+                                                                {invoice.customer?.phone || '---'} 
+                                                                <span className="text-[8px] font-mono text-gray-500 ml-2 bg-gray-100 px-1 py-[1px] rounded border border-gray-300">ID: {invoice.customer?.id}</span>
+                                                            </p>
+                                                            <p className="font-bold text-[9px] text-gray-800 uppercase mt-0 w-full truncate">{invoice.customer?.address || 'NO ADDRESS PROVIDED'}</p>
+                                                        </td>
+                                                        <td style={{ border: 'none', padding: '4px 6px', verticalAlign: 'top', textAlign: 'right', width: '80px' }}>
+                                                            <div style={{ fontSize: '9px', fontWeight: 900, color: '#374151', lineHeight: 1.2 }}>
+                                                                Category:<br/><span style={{ color: 'black', textTransform: 'uppercase' }}>{invoice.customer?.category || 'N/A'}</span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
                                         </td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
 
-                        <table className="data-table bold-border" style={{ marginBottom: '12px' }}>
+                        <table className="bold-border mb-2 w-full mt-1">
                             <thead>
                                 <tr>
-                                    <th style={{ width: '32px', textAlign: 'center', borderBottom: '1.5px solid black' }}><span style={{ display: 'block', fontSize: '11px' }}>Sr.</span><span className="urdu-text" style={{ display: 'block', fontSize: '12px', marginTop: '2px' }}>نمبر</span></th>
-                                    <th style={{ textAlign: 'left', borderBottom: '1.5px solid black' }}><span style={{ display: 'block', fontSize: '11px' }}>Description</span><span className="urdu-text" style={{ display: 'block', fontSize: '12px', marginTop: '2px' }}>تفصیل</span></th>
-                                    <th style={{ width: '48px', textAlign: 'center', borderBottom: '1.5px solid black' }}><span style={{ display: 'block', fontSize: '11px' }}>Qty</span><span className="urdu-text" style={{ display: 'block', fontSize: '12px', marginTop: '2px' }}>مقدار</span></th>
-                                    <th style={{ width: '48px', textAlign: 'center', borderBottom: '1.5px solid black' }}><span style={{ display: 'block', fontSize: '11px' }}>Unit</span><span className="urdu-text" style={{ display: 'block', fontSize: '12px', marginTop: '2px' }}>یونٹ</span></th>
-                                    <th style={{ width: '64px', textAlign: 'right', borderBottom: '1.5px solid black' }}><span style={{ display: 'block', fontSize: '11px' }}>Price</span><span className="urdu-text" style={{ display: 'block', fontSize: '12px', marginTop: '2px' }}>قیمت</span></th>
-                                    <th style={{ width: '80px', textAlign: 'right', borderBottom: '1.5px solid black' }}><span style={{ display: 'block', fontSize: '11px' }}>Amount</span><span className="urdu-text" style={{ display: 'block', fontSize: '12px', marginTop: '2px' }}>رقم</span></th>
+                                    <th className="w-8 text-center border-b-[1.5px] border-black"><span className="block text-[11px]">Sr.</span><span className="urdu-text text-[12px] block mt-0.5">نمبر</span></th>
+                                    <th className="text-left border-b-[1.5px] border-black"><span className="block text-[11px]">Description</span><span className="urdu-text text-[12px] block mt-0.5">تفصیل</span></th>
+                                    <th className="w-10 text-center border-b-[1.5px] border-black"><span className="block text-[11px]">Qty</span><span className="urdu-text text-[12px] block mt-0.5">مقدار</span></th>
+                                    <th className="w-10 text-center border-b-[1.5px] border-black"><span className="block text-[11px]">Unit</span><span className="urdu-text text-[12px] block mt-0.5">یونٹ</span></th>
+                                    <th className="w-16 text-right border-b-[1.5px] border-black"><span className="block text-[11px]">Price</span><span className="urdu-text text-[12px] block mt-0.5">قیمت</span></th>
+                                    <th className="w-20 text-right border-b-[1.5px] border-black"><span className="block text-[11px]">Amount</span><span className="urdu-text text-[12px] block mt-0.5">رقم</span></th>
                                 </tr>
                             </thead>
-                            <tbody style={{ fontWeight: 700, color: 'black', textTransform: 'uppercase' }}>
-                                {safeItems.map((item: any, i: number) => (
+                            <tbody className="font-bold text-black uppercase">
+                                {invoice.items.map((item: any, i: number) => (
                                     <tr key={i}>
-                                        <td style={{ textAlign: 'center', verticalAlign: 'middle', padding: '10px 6px', fontSize: '14px' }}>{i + 1}</td>
-                                        <td style={{ textAlign: 'left', verticalAlign: 'middle', padding: '10px 6px', fontSize: '15px', fontWeight: 900, fontFamily: "'Noto Nastaliq Urdu', sans-serif" }}>{item.product?.name || 'Item'}</td>
-                                        <td style={{ textAlign: 'center', verticalAlign: 'middle', padding: '10px 6px', fontSize: '16px', fontWeight: 900 }}>{item.quantity}</td>
-                                        <td style={{ textAlign: 'center', verticalAlign: 'middle', padding: '10px 6px', fontSize: '10px', fontWeight: 700, color: '#374151' }}>{item.product?.unit || 'Bags'}</td>
-                                        <td style={{ textAlign: 'right', verticalAlign: 'middle', padding: '10px 6px', fontSize: '14px' }}>{(item.price || 0).toLocaleString()}</td>
-                                        <td style={{ textAlign: 'right', verticalAlign: 'middle', padding: '10px 6px', fontSize: '14px', fontWeight: 900 }}>{((item.quantity || 0) * (item.price || 0)).toLocaleString()}</td>
+                                        <td className="text-center align-middle py-1 text-[11px]">{i + 1}</td>
+                                        <td className="text-left py-1 text-[13px] font-black leading-none jameel-font" dir="ltr">
+                                            {item.product?.name || 'Item'}
+                                        </td>
+                                        <td className="text-center align-middle py-1 text-[12px] font-black">{item.quantity}</td>
+                                        <td className="text-center align-middle py-1 text-[9px] font-bold text-gray-700">{item.product?.unit || 'Bags'}</td>
+                                        <td className="text-right align-middle py-1 text-[12px]">{(item.price).toLocaleString()}</td>
+                                        <td className="text-right align-middle py-1 text-[12px] font-black">{(item.quantity * item.price).toLocaleString()}</td>
                                     </tr>
                                 ))}
-                                {emptyRows.map((_, i) => (<tr key={`empty-${i}`}><td style={{ padding: '16px 6px', color: 'transparent' }}>-</td><td></td><td></td><td></td><td></td><td></td></tr>))}
+                                {emptyRows.map((_, i) => (
+                                    <tr key={`empty-${i}`}><td className="py-2.5 text-transparent">-</td><td></td><td></td><td></td><td></td><td></td></tr>
+                                ))}
                             </tbody>
                         </table>
 
-                        <div style={{ display: 'block', width: '100%', marginBottom: '24px', overflow: 'hidden' }}>
-                            <table className="bold-border" style={{ width: '190px', float: 'right', backgroundColor: 'white', fontSize: '11px', borderCollapse: 'collapse' }}>
+                        <div className="block w-full mb-3">
+                            <table className="w-[190px] bold-border h-fit ml-auto bg-white text-[11px]">
                                 <tbody>
-                                    <tr>
-                                        <td style={{ fontWeight: 900, borderBottom: '1px solid black', padding: '6px 8px' }}>Subtotal: <span className="urdu-text" style={{ fontSize: '12px', float: 'right' }}>میزان</span></td>
-                                        <td style={{ textAlign: 'right', fontWeight: 900, borderBottom: '1px solid black', borderLeft: '1.5px solid black', padding: '6px 8px' }}>{subtotal.toLocaleString()}</td>
-                                    </tr>
-                                    {invoice.discountAmount > 0 && (
-                                        <tr>
-                                            <td style={{ fontWeight: 900, borderBottom: '1px solid black', padding: '6px 8px' }}>Discount: <span className="urdu-text" style={{ fontSize: '12px', float: 'right' }}>رعایت</span></td>
-                                            <td style={{ textAlign: 'right', fontWeight: 900, borderBottom: '1px solid black', borderLeft: '1.5px solid black', padding: '6px 8px' }}>- {(invoice.discountAmount || 0).toLocaleString()}</td>
-                                        </tr>
-                                    )}
-                                    <tr>
-                                        <td style={{ fontWeight: 900, borderBottom: '1px solid black', padding: '6px 8px' }}>Prev. Bal: <span className="urdu-text" style={{ fontSize: '12px', float: 'right' }}>سابقہ بقایا</span></td>
-                                        <td style={{ textAlign: 'right', fontWeight: 900, borderBottom: '1px solid black', borderLeft: '1.5px solid black', padding: '6px 8px' }}>{(invoice.prevBalance || 0).toLocaleString()}</td>
-                                    </tr>
-                                    <tr>
-                                        <td style={{ fontWeight: 900, borderBottom: '1px solid black', padding: '6px 8px' }}>Total: <span className="urdu-text" style={{ fontSize: '12px', float: 'right' }}>کل رقم</span></td>
-                                        <td style={{ textAlign: 'right', fontWeight: 900, borderBottom: '1px solid black', borderLeft: '1.5px solid black', padding: '6px 8px', fontSize: '14px' }}>{ ((invoice.prevBalance || 0) + (invoice.isReturn ? -netTotal : netTotal)).toLocaleString() }</td>
-                                    </tr>
-                                    <tr>
-                                        <td style={{ fontWeight: 900, borderBottom: '1px solid black', padding: '6px 8px' }}>Payment: <span className="urdu-text" style={{ fontSize: '12px', float: 'right' }}>وصول شدہ</span></td>
-                                        <td style={{ textAlign: 'right', fontWeight: 900, borderBottom: '1px solid black', borderLeft: '1.5px solid black', padding: '6px 8px' }}>{payment.toLocaleString()}</td>
-                                    </tr>
-                                    <tr>
-                                        <td style={{ fontWeight: 900, padding: '6px 8px' }}>Balance: <span className="urdu-text" style={{ fontSize: '12px', float: 'right' }}>موجودہ بقایا</span></td>
-                                        <td style={{ textAlign: 'right', fontWeight: 900, borderLeft: '1.5px solid black', padding: '6px 8px', fontSize: '14px' }}>{closingBalance.toLocaleString()}</td>
-                                    </tr>
+                                    <tr><td className="font-black w-24 border-b border-black py-1 px-2 flex justify-between items-center"><span>Subtotal:</span><span className="urdu-text text-[11px] ml-1">میزان</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">{subtotal.toLocaleString()}</td></tr>
+                                    {invoice.discountAmount > 0 && (<tr><td className="font-black border-b border-black py-1 px-2 flex justify-between items-center"><span>Discount:</span><span className="urdu-text text-[11px] ml-1">رعایت</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">- {invoice.discountAmount.toLocaleString()}</td></tr>)}
+                                    <tr><td className="font-black border-b border-black py-1 px-2 flex justify-between items-center"><span>Prev. Bal:</span><span className="urdu-text text-[11px] ml-1">سابقہ بقایا</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">{prevBalance.toLocaleString()}</td></tr>
+                                    <tr><td className="font-black border-b border-black py-1 px-2 flex justify-between items-center"><span>Total:</span><span className="urdu-text text-[11px] ml-1">کل رقم</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2 text-[12px]">{ (prevBalance + (invoice.isReturn ? -netTotal : netTotal)).toLocaleString() }</td></tr>
+                                    <tr><td className="font-black border-b border-black py-1 px-2 flex justify-between items-center"><span>Payment:</span><span className="urdu-text text-[11px] ml-1">وصول شدہ</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">{payment.toLocaleString()}</td></tr>
+                                    <tr><td className="font-black py-1 px-2 flex justify-between items-center"><span>Balance:</span><span className="urdu-text text-[11px] ml-1">موجودہ بقایا</span></td><td className="text-right font-black border-l-[1.5px] px-2 text-[12px]">{closingBalance.toLocaleString()}</td></tr>
                                 </tbody>
                             </table>
                         </div>
 
-                        <div style={{ width: '100%', textAlign: 'center', backgroundColor: 'white', marginTop: '32px', paddingTop: '16px', clear: 'both' }}>
-                            <h3 className="urdu-text" style={{ fontSize: '18px', fontWeight: 900, color: 'black', margin: 0, lineHeight: 1 }}>سیلز مین سے لین دین کے لئے رابطہ کریں</h3>
-                            <p style={{ fontWeight: 900, fontSize: '12px', letterSpacing: '0.1em', color: 'black', margin: '4px 0 0 0' }}>{repDetails.phone}</p>
+                        <div className="w-full text-center bg-white border-none mt-2 pt-1">
+                            <h3 className="urdu-text text-[14px] font-black text-black z-10 text-center mb-0 leading-none">سیلز مین سے لین دین کے لئے رابطہ کریں</h3>
+                            <p className="font-black text-[10px] tracking-widest text-black z-10 mt-0.5">{repDetails.phone}</p>
                         </div>
-
+                        
                     </div>
                 )
             })}

@@ -41,7 +41,6 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
 
   const filteredCustomers = customers.filter(c => 
       c.name.toLowerCase().includes(custSearch.toLowerCase()) || 
-      (c.phone && c.phone.includes(custSearch)) ||
       c.id.toLowerCase().includes(custSearch.toLowerCase())
   )
   
@@ -78,9 +77,7 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
     try {
         const result = initialData ? await updateInvoice(initialData.id, data) : await createInvoice(data)
         if (result?.id) { 
-            // Removed window.open() so it never automatically opens the print screen
             if (!initialData) {
-                // Completely resets the form for rapid sequential data entry
                 setSelectedCustomer(null); 
                 setCustSearch(''); 
                 setPrevBalance(0); 
@@ -101,7 +98,7 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.shiftKey && (e.code === 'Minus' || e.key === '_')) { e.preventDefault(); handleSave(false); }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); handleSave(false); }
         if (e.shiftKey && (e.code === 'Equal' || e.key === '+')) { e.preventDefault(); handleSave(true); }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -111,7 +108,7 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
   useEffect(() => {
     if (initialData) {
         setSelectedCustomer(initialData.customer); setCustSearch(initialData.customer.name); setPaidAmount(initialData.paidAmount || 0); setDiscountAmount(initialData.discountAmount || 0);
-        setRows(initialData.items.map((item: any, idx: number) => ({ id: `edit-${idx}`, productId: item.productId, search: item.product.name, price: item.price.toString(), quantity: item.quantity, total: item.price * item.quantity, unit: item.product?.unit || 'Bags' })))
+        setRows(initialData.items.map((item: any, idx: number) => ({ id: `edit-${idx}`, productId: item.productId, search: `${item.productId} - ${item.product.name}`, price: item.price.toString(), quantity: item.quantity, total: item.price * item.quantity, unit: item.product?.unit || 'Bags' })))
         getCustomerBalance(initialData.customer.id).then(bal => {
             let invoiceImpact = initialData.isReturn ? -(initialData.totalAmount) : (initialData.totalAmount - (initialData.paidAmount || 0))
             if(initialData.isHold) invoiceImpact = 0; setPrevBalance(bal - invoiceImpact)
@@ -140,7 +137,15 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
   }
 
   const handleSelectProduct = (index: number, prod: any) => {
-    const newRows = [...rows]; newRows[index].productId = prod.id; newRows[index].search = prod.name; newRows[index].price = prod.price ? prod.price.toString() : ''; newRows[index].unit = prod.unit || 'Bags'; newRows[index].total = (Number(newRows[index].price) || 0) * (Number(newRows[index].quantity) || 0); setRows(newRows); setActiveRowDrop(null); document.getElementById(`qty-${index}`)?.focus()
+    const newRows = [...rows]; 
+    newRows[index].productId = prod.id; 
+    newRows[index].search = `${prod.id} - ${prod.name}`; 
+    newRows[index].price = prod.price ? prod.price.toString() : ''; 
+    newRows[index].unit = prod.unit || 'Bags'; 
+    newRows[index].total = (Number(newRows[index].price) || 0) * (Number(newRows[index].quantity) || 0); 
+    setRows(newRows); 
+    setActiveRowDrop(null); 
+    document.getElementById(`qty-${index}`)?.focus()
   }
 
   const updateRowDetails = (index: number, field: string, value: string | number) => {
@@ -153,8 +158,12 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
   return (
     <div className="bg-white p-4 md:p-8 rounded-2xl shadow-xl border border-slate-200 relative">
       
-      {/* Universal Safari Date Fixer CSS */}
       <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
+          @font-face { font-family: 'Jameel Noori Nastaleeq'; src: local('Jameel Noori Nastaleeq'), local('Jameel Noori Nastaleeq Regular'); }
+          
+          .urdu-font { font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif !important; line-height: 2 !important; }
+
           .safari-date-killer::-webkit-datetime-edit { color: transparent !important; }
           .safari-date-killer::-webkit-datetime-edit-fields-wrapper { color: transparent !important; }
           .safari-date-killer::-webkit-datetime-edit-text { color: transparent !important; }
@@ -171,13 +180,13 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
             <label className="text-xs font-black uppercase text-slate-800 mb-2 block">Search Customer</label>
             <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input type="text" value={custSearch} placeholder="Type name or ID..." className="w-full pl-10 p-3 bg-white border-2 border-slate-300 rounded-xl font-black text-slate-900 outline-none focus:border-blue-600 transition" onChange={(e) => { setCustSearch(e.target.value); setShowCustDropdown(true); setSelectedCustomer(null); setPrevBalance(0); setCustHoverIndex(0) }} onFocus={(e) => { setShowCustDropdown(true); e.target.select() }} onKeyDown={handleCustKeyDown} />
+                <input type="text" value={custSearch} placeholder="Type name or ID..." dir="ltr" className="urdu-font text-left w-full pl-10 p-3 bg-white border-2 border-slate-300 rounded-xl font-black text-slate-900 outline-none focus:border-blue-600 transition" onChange={(e) => { setCustSearch(e.target.value); setShowCustDropdown(true); setSelectedCustomer(null); setPrevBalance(0); setCustHoverIndex(0) }} onFocus={(e) => { setShowCustDropdown(true); e.target.select() }} onKeyDown={handleCustKeyDown} />
             </div>
             {showCustDropdown && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-slate-200 shadow-2xl rounded-xl max-h-60 overflow-y-auto z-50 p-2">
                     {filteredCustomers.map((c, idx) => (
-                        <div key={c.id} onClick={() => handleSelectCustomer(c)} onMouseEnter={() => setCustHoverIndex(idx)} className={`p-3 rounded-lg cursor-pointer text-slate-900 border-b border-slate-100 last:border-0 ${custHoverIndex === idx ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
-                            <p className="font-black uppercase">{c.name}</p><p className="text-xs text-slate-500 font-bold">{c.phone} | ID: {c.id}</p>
+                        <div key={c.id} onClick={() => handleSelectCustomer(c)} onMouseEnter={() => setCustHoverIndex(idx)} className={`p-3 rounded-lg cursor-pointer text-slate-900 flex justify-between items-center ${custHoverIndex === idx ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
+                            <p className="font-black uppercase urdu-font text-left" dir="ltr">{c.name}</p><p className="text-xs text-slate-500 font-bold">{c.phone} | ID: {c.id}</p>
                         </div>
                     ))}
                 </div>
@@ -204,20 +213,30 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
 
       </div>
 
-      <div className="space-y-4 relative z-30">
-        <div className="hidden md:grid grid-cols-12 gap-4 px-2 text-[10px] font-black uppercase text-slate-500">
-          <div className="col-span-6">Search Product</div><div className="col-span-2 text-center">{initialData?.isReturn ? 'Returned Qty' : 'Qty'}</div><div className="col-span-2 text-right">Price</div><div className="col-span-2 text-right">Total</div>
+      <div className="space-y-4 relative z-30 w-full">
+        {/* ADDED w-full and expanded col-span-6 for Product Search */}
+        <div className="hidden md:grid grid-cols-12 gap-4 px-2 text-[10px] font-black uppercase text-slate-500 w-full">
+          <div className="col-span-1 text-center">Sr.</div>
+          <div className="col-span-6">Search Product</div>
+          <div className="col-span-1 text-center">{initialData?.isReturn ? 'Returned Qty' : 'Qty'}</div>
+          <div className="col-span-2 text-right">Price</div>
+          <div className="col-span-2 text-right">Total</div>
         </div>
 
         {rows.map((row, i) => (
-          <div key={row.id} className="flex flex-col md:grid md:grid-cols-12 gap-4 items-start md:items-center bg-slate-50 p-4 md:p-3 rounded-xl border-2 border-slate-200 relative">
+          /* ADDED w-full to the row container */
+          <div key={row.id} className="w-full flex flex-col md:grid md:grid-cols-12 gap-4 items-start md:items-center bg-slate-50 p-4 md:p-3 rounded-xl border-2 border-slate-200 relative">
+            
+            <div className="hidden md:block col-span-1 text-center font-black text-slate-400 text-sm">{i + 1}</div>
+            
+            {/* Expanded to col-span-6 */}
             <div className="w-full md:col-span-6 relative">
               <label className="md:hidden text-[10px] font-black uppercase text-slate-500 mb-1 block">Product</label>
               
               <div className="relative">
-                  <input id={`search-${i}`} type="text" placeholder="Search..." value={row.search} className="w-full p-3 md:p-2 pr-16 bg-white border border-slate-300 rounded-lg font-black text-slate-900 outline-none focus:border-blue-500 uppercase" onChange={(e) => { updateRowDetails(i, 'search', e.target.value); updateRowDetails(i, 'productId', ''); setActiveRowDrop(i); setProdHoverIndex(0) }} onFocus={(e) => { setActiveRowDrop(i); e.target.select() }} onKeyDown={(e) => handleProdKeyDown(e, i)} />
+                  <input id={`search-${i}`} type="text" placeholder="Search..." value={row.search} dir="ltr" className="urdu-font text-left w-full p-3 md:p-2 pr-16 bg-white border border-slate-300 rounded-lg font-black text-slate-900 outline-none focus:border-blue-500 uppercase transition-all" onChange={(e) => { updateRowDetails(i, 'search', e.target.value); updateRowDetails(i, 'productId', ''); setActiveRowDrop(i); setProdHoverIndex(0) }} onFocus={(e) => { setActiveRowDrop(i); e.target.select() }} onKeyDown={(e) => handleProdKeyDown(e, i)} />
                   {row.unit && row.productId && (
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] bg-slate-100 text-slate-500 font-black uppercase px-2 py-1 rounded border border-slate-200 pointer-events-none">
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] bg-slate-100 text-slate-500 font-black uppercase px-2 py-1 rounded border border-slate-200 pointer-events-none font-sans">
                           {row.unit}
                       </span>
                   )}
@@ -227,8 +246,8 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
                   <div className="absolute top-full left-0 w-full mt-1 bg-white border-2 border-slate-300 shadow-2xl rounded-lg max-h-48 overflow-y-auto z-[9999] p-1">
                       {filteredProducts(i).map((p, idx) => (
                           <div key={p.id} onClick={() => handleSelectProduct(i, p)} onMouseEnter={() => setProdHoverIndex(idx)} className={`p-3 md:p-2 cursor-pointer rounded text-slate-900 flex justify-between items-center ${prodHoverIndex === idx ? 'bg-blue-100' : 'hover:bg-slate-100'}`}>
-                              <p className="font-black text-sm uppercase">{p.name}</p>
-                              <span className="text-[10px] font-bold text-slate-400 bg-slate-200 px-2 rounded uppercase">{p.unit || 'Bags'}</span>
+                              <p className="font-black text-sm uppercase urdu-font text-left" dir="ltr">{p.id} - {p.name}</p>
+                              <span className="text-[10px] font-bold text-slate-400 bg-slate-200 px-2 rounded uppercase font-sans">{p.unit || 'Bags'}</span>
                           </div>
                       ))}
                   </div>
@@ -236,7 +255,8 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
             </div>
             
             <div className="flex gap-4 w-full md:contents">
-                <div className="flex-1 md:col-span-2">
+                {/* Reduced to col-span-1 to give room to the Product Search */}
+                <div className="flex-1 md:col-span-1">
                   <label className="md:hidden text-[10px] font-black uppercase text-slate-500 mb-1 block">Qty</label>
                   <input id={`qty-${i}`} type="number" className="w-full p-3 md:p-2 bg-white border border-slate-300 rounded-lg text-center font-black text-slate-900 outline-none focus:border-blue-500" value={row.quantity} onChange={(e) => updateRowDetails(i, 'quantity', e.target.value)} onFocus={(e) => e.target.select()} onKeyDown={(e) => handleInputEnter(e, `price-${i}`)} />
                 </div>
@@ -308,7 +328,7 @@ export default function InvoiceForm({ customers, products, initialData }: { cust
           )}
           <button onClick={() => handleSave(false)} type="button" disabled={isSubmitting} style={{ backgroundColor: initialData?.isReturn ? '#dc2626' : '#2563eb', color: 'white' }} className="flex-[1.5] py-5 rounded-xl font-black text-sm md:text-lg uppercase tracking-widest shadow-xl hover:opacity-90 transition active:scale-95 flex flex-col items-center justify-center disabled:opacity-50">
             <span>{isSubmitting ? 'Saving...' : (initialData ? (initialData.isReturn ? 'Update Return Record' : 'Update Invoice') : 'Generate Invoice')}</span>
-            <span className="text-[10px] opacity-75 mt-1 font-bold">Shortcut: Shift + -</span>
+            <span className="text-[10px] opacity-75 mt-1 font-bold">Shortcut: CTRL + S</span>
           </button>
       </div>
     </div>
