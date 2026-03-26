@@ -1,20 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Zap, Save, Trash2 } from 'lucide-react'
-// EXACT match to your backend actions
+import { Search, Zap, Save, Trash2, Edit } from 'lucide-react'
 import { saveProduct, deleteProduct } from '@/actions/actions' 
 
 export default function ProductManager({ products = [], categories = [] }: { products: any[], categories: any[] }) {
   const [search, setSearch] = useState('')
   const [quickEditMode, setQuickEditMode] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [editingOriginalId, setEditingOriginalId] = useState('')
 
-  // Quick Edit States
   const [draftCosts, setDraftCosts] = useState<Record<string, number>>({})
   const [draftPrices, setDraftPrices] = useState<Record<string, number>>({})
 
-  // New Product Form State
   const [newId, setNewId] = useState('')
   const [newName, setNewName] = useState('')
   const [newCat, setNewCat] = useState('')
@@ -24,17 +22,34 @@ export default function ProductManager({ products = [], categories = [] }: { pro
 
   const units = ['توڑے', 'کلو', 'BAGS', 'KGS', 'CARTONS', 'PCS', 'DOZEN']
 
-  // Search Filter
   const filteredProducts = products.filter(p => {
       const q = search.toLowerCase()
       return (p.name || '').toLowerCase().includes(q) || (p.id || '').toLowerCase().includes(q)
   })
+
+  const handleEditClick = (p: any) => {
+      setEditingOriginalId(p.id)
+      setNewId(p.id)
+      setNewName(p.name)
+      setNewCat(p.category || '')
+      setNewUnit(p.unit || 'توڑے')
+      setNewCost(p.cost?.toString() || '0')
+      setNewPrice(p.price?.toString() || '0')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      document.getElementById('new-name')?.focus()
+  }
+
+  const handleCancelEdit = () => {
+      setEditingOriginalId('')
+      setNewId(''); setNewName(''); setNewCat(''); setNewUnit('توڑے'); setNewCost(''); setNewPrice('');
+  }
 
   const handleAddProduct = async (e: React.FormEvent) => {
       e.preventDefault()
       setIsSaving(true)
       try {
           const formData = new FormData()
+          if (editingOriginalId) formData.append('originalId', editingOriginalId)
           if (newId) formData.append('id', newId)
           formData.append('name', newName)
           formData.append('category', newCat)
@@ -44,10 +59,10 @@ export default function ProductManager({ products = [], categories = [] }: { pro
           
           await saveProduct(formData)
           
-          setNewId(''); setNewName(''); setNewCost(''); setNewPrice('');
-          alert('Product added successfully!')
+          handleCancelEdit()
+          alert(editingOriginalId ? 'Product updated successfully!' : 'Product added successfully!')
       } catch (err) {
-          alert('Error adding product.')
+          alert('Error saving product.')
       } finally {
           setIsSaving(false)
       }
@@ -56,14 +71,13 @@ export default function ProductManager({ products = [], categories = [] }: { pro
   const handleSaveQuickEdits = async () => {
       setIsSaving(true)
       try {
-          // Loop through all filtered products and save the ones that were changed
           for (const p of filteredProducts) {
               const updatedCost = draftCosts[p.id] !== undefined ? draftCosts[p.id] : p.cost
               const updatedPrice = draftPrices[p.id] !== undefined ? draftPrices[p.id] : p.price
               
               if (updatedCost !== p.cost || updatedPrice !== p.price) {
                   const formData = new FormData()
-                  formData.append('originalId', p.id) // Tells backend to UPDATE, not create
+                  formData.append('originalId', p.id)
                   formData.append('id', p.id)
                   formData.append('name', p.name)
                   formData.append('category', p.category || '')
@@ -91,7 +105,6 @@ export default function ProductManager({ products = [], categories = [] }: { pro
       }
   }
 
-  // Intercepts Enter key and moves focus
   const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>, nextFieldId: string) => {
     if (e.key === 'Enter') {
         e.preventDefault();
@@ -108,9 +121,11 @@ export default function ProductManager({ products = [], categories = [] }: { pro
           .urdu-font { font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', sans-serif !important; line-height: 2 !important; }
         `}</style>
 
-        {/* ADD NEW PRODUCT FORM */}
-        <form onSubmit={handleAddProduct} className="bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-slate-200">
-            <h2 className="text-xl font-black uppercase text-slate-900 mb-6">Add New Product</h2>
+        <form onSubmit={handleAddProduct} className={`bg-white p-6 md:p-8 rounded-3xl shadow-xl border ${editingOriginalId ? 'border-blue-400 ring-4 ring-blue-50' : 'border-slate-200'}`}>
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-black uppercase text-slate-900">{editingOriginalId ? 'Edit Product' : 'Add New Product'}</h2>
+                {editingOriginalId && <button type="button" onClick={handleCancelEdit} className="text-xs font-black uppercase tracking-widest text-slate-500 hover:text-slate-800">Cancel Edit</button>}
+            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
@@ -150,12 +165,11 @@ export default function ProductManager({ products = [], categories = [] }: { pro
                 </div>
             </div>
 
-            <button id="prod-submit-btn" type="submit" disabled={isSaving} className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest hover:bg-black transition disabled:opacity-50">
-                {isSaving ? 'Saving...' : 'Save Product'}
+            <button id="prod-submit-btn" type="submit" disabled={isSaving} className={`w-full py-4 text-white rounded-xl font-black uppercase tracking-widest transition disabled:opacity-50 ${editingOriginalId ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-900 hover:bg-black'}`}>
+                {isSaving ? 'Saving...' : (editingOriginalId ? 'Update Product' : 'Save Product')}
             </button>
         </form>
 
-        {/* PRODUCTS TABLE */}
         <div className="bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-slate-200">
             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <div className="relative w-full md:w-72">
@@ -183,10 +197,7 @@ export default function ProductManager({ products = [], categories = [] }: { pro
                 <table className="w-full text-left border-collapse">
                     <thead className="bg-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b-2 border-slate-200">
                         <tr>
-                            <th className="p-4">ID</th>
-                            <th className="p-4">Name</th>
-                            <th className="p-4">Category</th>
-                            <th className="p-4 text-center">Unit</th>
+                            <th className="p-4">ID</th><th className="p-4">Name</th><th className="p-4">Category</th><th className="p-4 text-center">Unit</th>
                             <th className={`p-4 text-right ${quickEditMode ? 'bg-orange-100 text-orange-800 border-b-4 border-orange-400' : ''}`}>Cost</th>
                             <th className={`p-4 text-right ${quickEditMode ? 'bg-emerald-100 text-emerald-800 border-b-4 border-emerald-400' : ''}`}>Price</th>
                             <th className="p-4 text-right">Actions</th>
@@ -200,7 +211,6 @@ export default function ProductManager({ products = [], categories = [] }: { pro
                                 <td className="p-4 urdu-font" dir="ltr">{p.category || '---'}</td>
                                 <td className="p-4 text-center"><span className="urdu-font text-left text-[10px] bg-slate-200 px-2 py-1 rounded text-slate-600">{p.unit}</span></td>
                                 
-                                {/* QUICK EDIT COST */}
                                 <td className={`p-4 text-right ${quickEditMode ? 'bg-orange-50' : ''}`}>
                                     {quickEditMode ? (
                                         <input type="number" id={`cost-${index}`} className="w-24 p-2 text-right border-2 border-orange-300 rounded-lg font-black text-slate-900 outline-none focus:border-orange-600"
@@ -212,7 +222,6 @@ export default function ProductManager({ products = [], categories = [] }: { pro
                                     ) : <span className="text-red-600">{p.cost.toLocaleString()}</span>}
                                 </td>
 
-                                {/* QUICK EDIT PRICE */}
                                 <td className={`p-4 text-right ${quickEditMode ? 'bg-emerald-50' : ''}`}>
                                     {quickEditMode ? (
                                         <input type="number" id={`price-${index}`} className="w-24 p-2 text-right border-2 border-emerald-300 rounded-lg font-black text-emerald-700 outline-none focus:border-emerald-600"
@@ -225,7 +234,10 @@ export default function ProductManager({ products = [], categories = [] }: { pro
                                 </td>
 
                                 <td className="p-4 text-right">
-                                    <button onClick={() => handleDelete(p.id)} className="p-2 bg-red-50 text-red-600 rounded hover:bg-red-100 transition"><Trash2 size={16} /></button>
+                                    <div className="flex justify-end gap-2">
+                                        <button onClick={() => handleEditClick(p)} className="p-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition"><Edit size={16} /></button>
+                                        <button onClick={() => handleDelete(p.id)} className="p-2 bg-red-50 text-red-600 rounded hover:bg-red-100 transition"><Trash2 size={16} /></button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}

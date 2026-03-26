@@ -24,9 +24,9 @@ export default async function NewVoucherPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 lg:ml-64 p-4 pt-20 lg:p-8">
-      <div className="max-w-5xl mx-auto mb-20">
+      {/* 🔴 FIXED WIDTH: max-w-full gives the grid room to breathe */}
+      <div className="max-w-full mx-auto mb-20">
         
-        {/* FIXED BACK BUTTON: Clean, solid, and fail-proof */}
         <Link href="/receivables" className="inline-flex items-center justify-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition mb-8 w-max">
             <ArrowLeft size={16} /> Back to Receivables
         </Link>

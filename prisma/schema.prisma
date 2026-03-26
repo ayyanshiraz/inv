@@ -49,21 +49,22 @@ model Product {
 
 // 4. Invoices Table
 model Invoice {
-  id          String        @id @unique @default(cuid())
-  totalAmount Float
-  paidAmount  Float         @default(0) 
-  discountAmount Float         @default(0)   // <--- ADD THIS LINE 
-  isReturn    Boolean       @default(false)
-  isHold         Boolean       @default(false) //
-  createdAt   DateTime      @default(now())
+  id             String        @id @unique @default(cuid())
+  totalAmount    Float
+  paidAmount     Float         @default(0) 
+  discountAmount Float         @default(0)   
+  isReturn       Boolean       @default(false)
+  isHold         Boolean       @default(false) 
+  notes          String?       // 🔴 ADD THIS EXACT LINE
+  createdAt      DateTime      @default(now())
   
-  customerId  String
-  customer    Customer      @relation(fields: [customerId], references: [id])
+  customerId     String
+  customer       Customer      @relation(fields: [customerId], references: [id])
   
-  userId      String
-  user        User          @relation(fields: [userId], references: [id])
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
   
-  items       InvoiceItem[]
+  items          InvoiceItem[]
 }
 
 // 5. Invoice Items

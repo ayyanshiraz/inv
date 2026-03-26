@@ -9,11 +9,10 @@ export default function CustomerHistorySearch({ customers, currentFrom, currentT
     const [search, setSearch] = useState('')
     const [isOpen, setIsOpen] = useState(false)
 
+    // AMENDMENT: Strictly filters by Name and ID only. Removed phone and address search.
     const filtered = customers.filter(c =>
-        c.name.toLowerCase().includes(search.toLowerCase()) ||
-        c.id.toLowerCase().includes(search.toLowerCase()) ||
-        (c.phone && c.phone.includes(search)) ||
-        (c.address && c.address.toLowerCase().includes(search.toLowerCase()))
+        (c.name || '').toLowerCase().includes(search.toLowerCase()) ||
+        (c.id || '').toLowerCase().includes(search.toLowerCase())
     )
 
     const handleSelect = (id: string) => {
@@ -32,7 +31,7 @@ export default function CustomerHistorySearch({ customers, currentFrom, currentT
                 <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                     type="text"
-                    placeholder="Type name, phone, ID, or address..."
+                    placeholder="Type name or ID..."
                     value={search}
                     onChange={(e) => { setSearch(e.target.value); setIsOpen(true); }}
                     onFocus={() => setIsOpen(true)}

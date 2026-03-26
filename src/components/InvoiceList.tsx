@@ -68,7 +68,7 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
     else setSelectedIds([...selectedIds, id])
   }
 
-  const handleIndividualWhatsApp = (inv: any) => {
+const handleIndividualWhatsApp = (inv: any) => {
     if (!inv.customer.phone || inv.customer.phone.trim() === '') {
         alert(`Customer ${inv.customer.name} does not have a valid phone number saved.`);
         return;
@@ -88,8 +88,11 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
         ? inv.items.map((item: any) => `- ${item.quantity}x ${item.product?.name || 'Item'} @ ${item.price} = ${(item.quantity * item.price).toLocaleString()}`).join('\n')
         : "No items";
 
+    // 🔴 RETURN HIGHLIGHT ADDED HERE
+    const docType = inv.isReturn ? '🛑 *RETURN INVOICE*' : (isHoldView ? '📄 *QUOTATION*' : '🧾 *SALES INVOICE*');
+
     const text = `*FAHAD TRADERS*\n` +
-                 `${isHoldView ? 'Quotation' : 'Invoice'} #: ${displayId}\n` +
+                 `${docType} #: ${displayId}\n` +
                  `Date: ${new Date(inv.createdAt).toLocaleDateString('en-GB')}\n` +
                  `------------------------\n` +
                  `*Items:*\n${itemsText}\n` +
@@ -103,7 +106,7 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
     const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   }
-
+  
   const handleBulkWhatsApp = () => {
     const selected = filteredInvoices.filter(i => selectedIds.includes(i.id));
     const validInvoices = selected.filter(i => i.customer.phone && i.customer.phone.trim() !== '');

@@ -29,7 +29,7 @@ export async function logoutUser() {
   redirect('/login')
 }
 
-// Global ID Generator (Prevents Invoice ID collisions between admin & admin3)
+// Global ID Generator
 async function getNextInvoiceId(tx: any) {
     const allInvoices = await tx.invoice.findMany({ select: { id: true } });
     let maxSeq = 0;
@@ -43,7 +43,7 @@ async function getNextInvoiceId(tx: any) {
 }
 
 // ==========================================
-// 1. PRODUCT ACTIONS (ISOLATED)
+// 1. PRODUCT ACTIONS
 // ==========================================
 export async function saveProduct(formData: FormData) {
   const userId = await getUser()
@@ -68,7 +68,7 @@ export async function saveProduct(formData: FormData) {
           if (existing.userId !== userId) return { error: "This Product ID is already in use by the system. Please type a different ID." }
           else await prisma.product.update({ where: { id }, data: { name, category, unit, cost, price } }) 
       } else { 
-          await prisma.product.create({ data: { id, name, category, unit, cost, price, stock: 1000, userId } }) 
+          await prisma.product.create({ data: { id, name, category, unit, cost, price, stock: 1000, user: { connect: { id: userId } } } }) 
       }
   }
   revalidateAll(); return { success: true }
@@ -99,7 +99,7 @@ export async function bulkUpdateProductPrices(updates: { id: string, cost: numbe
 }
 
 // ==========================================
-// 2. CATEGORY & CUSTOMER ACTIONS (ISOLATED)
+// 2. CATEGORY & CUSTOMER ACTIONS
 // ==========================================
 export async function addProductCategory(formData: FormData) {
   const userId = await getUser()
@@ -149,7 +149,7 @@ export async function saveCustomer(formData: FormData) {
       if (existing) { 
           if (existing.userId !== userId) return { error: "This Customer ID is already in use. Please type a different ID." }
           else await prisma.customer.update({ where: { id }, data: { name, phone, address, category, openingBalance } }) 
-      } else await prisma.customer.create({ data: { id, name, phone, address, category, openingBalance, userId } }) 
+      } else await prisma.customer.create({ data: { id, name, phone, address, category, openingBalance, user: { connect: { id: userId } } } }) 
   }
   revalidateAll(); return { success: true }
 }
@@ -204,7 +204,7 @@ export async function deleteCustomerCategory(id: string) {
 }
 
 // ==========================================
-// 3. INVOICE & RETURN LOGIC (ISOLATED)
+// 3. INVOICE & RETURN LOGIC
 // ==========================================
 export async function createInvoice(invoiceData: any) {
   const userId = await getUser()
@@ -215,8 +215,16 @@ export async function createInvoice(invoiceData: any) {
     return await tx.invoice.create({
       data: {
         id: nextId,
-        customerId: invoiceData.customerId, totalAmount: Number(invoiceData.totalAmount) || 0, paidAmount: Number(invoiceData.paidAmount) || 0, discountAmount: Number(invoiceData.discountAmount) || 0, isReturn: invoiceData.isReturn || false, isHold: invoiceData.isHold || false, userId: userId, createdAt: dateToSave,
-        items: { create: invoiceData.items.map((item: any) => ({ productId: item.productId, quantity: Number(item.quantity), price: Number(item.price) })) }
+        customer: { connect: { id: invoiceData.customerId } }, 
+        user: { connect: { id: userId } },
+        totalAmount: Number(invoiceData.totalAmount) || 0, 
+        paidAmount: Number(invoiceData.paidAmount) || 0, 
+        discountAmount: Number(invoiceData.discountAmount) || 0, 
+        isReturn: invoiceData.isReturn || false, 
+        isHold: invoiceData.isHold || false, 
+        notes: invoiceData.notes || '',
+        createdAt: dateToSave,
+        items: { create: (invoiceData.items || []).map((item: any) => ({ productId: item.productId, quantity: Number(item.quantity), price: Number(item.price) })) }
       }
     })
   })
@@ -235,8 +243,14 @@ export async function updateInvoice(invoiceId: string, invoiceData: any) {
     await tx.invoice.update({
       where: { id: invoiceId },
       data: { 
-          customerId: invoiceData.customerId, totalAmount: Number(invoiceData.totalAmount) || 0, paidAmount: Number(invoiceData.paidAmount) || 0, discountAmount: Number(invoiceData.discountAmount) || 0, isHold: invoiceData.isHold || false, createdAt: dateToSave,
-          items: { create: invoiceData.items.map((item: any) => ({ productId: item.productId, quantity: Number(item.quantity), price: Number(item.price) })) }
+          customer: { connect: { id: invoiceData.customerId } },
+          totalAmount: Number(invoiceData.totalAmount) || 0, 
+          paidAmount: Number(invoiceData.paidAmount) || 0, 
+          discountAmount: Number(invoiceData.discountAmount) || 0, 
+          isHold: invoiceData.isHold || false, 
+          notes: invoiceData.notes || '',
+          createdAt: dateToSave,
+          items: { create: (invoiceData.items || []).map((item: any) => ({ productId: item.productId, quantity: Number(item.quantity), price: Number(item.price) })) }
       }
     })
   })
@@ -271,7 +285,9 @@ export async function processSmartReturn(originalInvoiceId: string, returnItems:
       await tx.invoice.create({ 
           data: { 
               id: nextId,
-              isReturn: true, totalAmount: Number(totalReturnAmount) || 0, paidAmount: 0, discountAmount: 0, customerId: customerId, userId: userId, createdAt: dateToSave, 
+              customer: { connect: { id: customerId } },
+              user: { connect: { id: userId } },
+              isReturn: true, totalAmount: Number(totalReturnAmount) || 0, paidAmount: 0, discountAmount: 0, createdAt: dateToSave, 
               items: { create: returnItems.map((item: any) => ({ productId: item.productId, quantity: Number(item.quantity), price: Number(item.price) })) } 
           } 
       });
@@ -300,7 +316,7 @@ export async function getCustomerInvoices(customerId: string) {
 }
 
 // ==========================================
-// 4. REPORTING LOGIC (ISOLATED)
+// 4. REPORTING LOGIC
 // ==========================================
 export async function searchInvoices(query: string) {
   const userId = await getUser();
@@ -411,9 +427,9 @@ export async function getLedgerReportData(from?: Date, to?: Date) {
 }
 
 // ==========================================
-// 5. RECEIVABLES & VOUCHERS (ISOLATED)
+// 5. RECEIVABLES & VOUCHERS
 // ==========================================
-export async function createVouchers(vouchers: { customerId: string, amount: number, discount?: number }[], voucherDate?: string) {
+export async function createVouchers(vouchers: { customerId: string, amount: number, discount?: number, notes?: string }[], voucherDate?: string) {
   const userId = await getUser()
   const dateToSave = voucherDate ? new Date(voucherDate) : new Date()
 
@@ -424,7 +440,16 @@ export async function createVouchers(vouchers: { customerId: string, amount: num
           await tx.invoice.create({
               data: { 
                   id: String(baseIdNum + i).padStart(5, '0'),
-                  customerId: v.customerId, totalAmount: 0, paidAmount: Number(v.amount), discountAmount: Number(v.discount || 0), isReturn: false, isHold: false, userId: userId, createdAt: dateToSave, items: { create: [] } 
+                  customer: { connect: { id: v.customerId } }, 
+                  user: { connect: { id: userId } },
+                  totalAmount: 0, 
+                  paidAmount: Number(v.amount), 
+                  discountAmount: Number(v.discount || 0), 
+                  isReturn: false, 
+                  isHold: false, 
+                  notes: v.notes || '',
+                  createdAt: dateToSave, 
+                  items: { create: [] } 
               }
           })
       }
@@ -432,9 +457,9 @@ export async function createVouchers(vouchers: { customerId: string, amount: num
   revalidateAll()
 }
 
-export async function updateVoucher(id: string, amount: number, voucherDate?: string, discount?: number) {
+export async function updateVoucher(id: string, amount: number, voucherDate?: string, discount?: number, notes?: string) {
   const userId = await getUser()
-  const dataToUpdate: any = { paidAmount: Number(amount), discountAmount: Number(discount || 0) }
+  const dataToUpdate: any = { paidAmount: Number(amount), discountAmount: Number(discount || 0), notes: notes || '' }
   if (voucherDate) dataToUpdate.createdAt = new Date(voucherDate)
   await prisma.invoice.updateMany({ where: { id, userId, totalAmount: 0 }, data: dataToUpdate })
   revalidateAll()

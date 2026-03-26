@@ -50,7 +50,6 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
 
   return (
     <div className="bg-slate-200 min-h-screen py-10 block print:bg-white print:p-0 print:m-0">
-        
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
           @font-face { font-family: 'Jameel Noori Nastaleeq'; src: local('Jameel Noori Nastaleeq'), local('Jameel Noori Nastaleeq Regular'); }
@@ -59,7 +58,6 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
           .jameel-font { font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif !important; }
           
           @media print {
-              /* Forced exact mm dimensions to bypass browser A5 bugs */
               @page { size: 148mm 210mm; margin: 5mm !important; }
               body, html { margin: 0 !important; padding: 0 !important; background: white !important; display: block !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
               .no-print, aside, nav, header, [class*="fixed"] { display: none !important; }
@@ -99,13 +97,14 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
                         <p className="font-bold text-[9px] mt-1 text-black uppercase tracking-widest">{repDetails.name} <span className="ml-1">{repDetails.phone}</span></p>
                     </div>
                     <div className="text-right font-bold text-black min-w-[110px]">
+                        {/* RETURN HIGHLIGHT ADDED HERE */}
+                        {invoice.isReturn && <p style={{ margin: '0 0 2px 0', fontSize: '10px', fontWeight: 900, color: 'black', border: '1px solid black', padding: '2px 4px', display: 'inline-block', borderRadius: '4px' }}>RETURN INVOICE</p>}
                         <p className="mb-0.5 text-[15px] font-black">Inv# {displayId}</p>
                         <p className="text-[13px] m-0 font-black">Date: {displayDate}</p>
                         <p className="urdu-text m-0 text-[14px]">تاریخ</p>
                     </div>
                 </div>
 
-                {/* Crash-Proof Bill To Box (No absolute positioning) */}
                 <div className="bold-border" style={{ width: '65%', marginBottom: '3px', display: 'block' }}>
                     <table style={{ width: '100%', border: 'none' }}>
                         <tbody>
@@ -123,14 +122,15 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
                                         <tbody>
                                             <tr>
                                                 <td style={{ border: 'none', padding: '4px 6px', verticalAlign: 'top' }}>
-                                                    <h2 className="jameel-font" style={{ margin: 0, fontWeight: 900, fontSize: '16px', textTransform: 'uppercase', color: 'black', lineHeight: 1.2, textAlign: 'left' }} dir="ltr">
+                                                    {/* OVERLAP FIX: Added paddingBottom and mt-1 */}
+                                                    <h2 className="jameel-font" style={{ margin: 0, fontWeight: 900, fontSize: '16px', textTransform: 'uppercase', color: 'black', lineHeight: 1.4, textAlign: 'left', paddingBottom: '4px' }} dir="ltr">
                                                         {invoice.customer?.name || 'Unknown'}
                                                     </h2>
-                                                    <p className="font-bold text-black mt-0 text-[11px]">
+                                                    <p className="font-bold text-black mt-1 text-[11px]">
                                                         {invoice.customer?.phone || '---'} 
                                                         <span className="text-[8px] font-mono text-gray-500 ml-2 bg-gray-100 px-1 py-[1px] rounded border border-gray-300">ID: {invoice.customer.id}</span>
                                                     </p>
-                                                    <p className="font-bold text-[9px] text-gray-800 uppercase mt-0 w-full truncate">{invoice.customer?.address || 'NO ADDRESS PROVIDED'}</p>
+                                                    <p className="font-bold text-[9px] text-gray-800 uppercase mt-0.5 w-full truncate">{invoice.customer?.address || 'NO ADDRESS PROVIDED'}</p>
                                                 </td>
                                                 <td style={{ border: 'none', padding: '4px 6px', verticalAlign: 'top', textAlign: 'right', width: '80px' }}>
                                                     <div style={{ fontSize: '9px', fontWeight: 900, color: '#374151', lineHeight: 1.2 }}>
@@ -193,7 +193,6 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
                     <h3 className="urdu-text text-[14px] font-black text-black z-10 text-center mb-0 leading-none">سیلز مین سے لین دین کے لئے رابطہ کریں</h3>
                     <p className="font-black text-[10px] tracking-widest text-black z-10 mt-0.5">{repDetails.phone}</p>
                 </div>
-                
             </div>
         </div>
     </div>
