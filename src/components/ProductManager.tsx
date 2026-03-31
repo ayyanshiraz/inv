@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Search, Zap, Save, Trash2, Edit } from 'lucide-react'
 import { saveProduct, deleteProduct } from '@/actions/actions' 
 
@@ -19,6 +19,14 @@ export default function ProductManager({ products = [], categories = [] }: { pro
   const [newUnit, setNewUnit] = useState('توڑے') 
   const [newCost, setNewCost] = useState('')
   const [newPrice, setNewPrice] = useState('')
+
+  // Auto-focus ref for Product ID input
+  const productIdRef = useRef<HTMLInputElement>(null)
+
+  // Focus on Product ID field when component mounts or after form reset
+  useEffect(() => {
+    productIdRef.current?.focus()
+  }, [newId === '']) // Trigger focus when form is reset (newId becomes empty)
 
   const units = ['توڑے', 'کلو', 'BAGS', 'KGS', 'CARTONS', 'PCS', 'DOZEN']
 
@@ -61,6 +69,9 @@ export default function ProductManager({ products = [], categories = [] }: { pro
           
           handleCancelEdit()
           alert(editingOriginalId ? 'Product updated successfully!' : 'Product added successfully!')
+          
+          // Auto-focus Product ID field after successful save
+          setTimeout(() => productIdRef.current?.focus(), 100)
       } catch (err) {
           alert('Error saving product.')
       } finally {
@@ -130,7 +141,7 @@ export default function ProductManager({ products = [], categories = [] }: { pro
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                     <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Product ID (Optional)</label>
-                    <input id="new-id" type="text" value={newId} onChange={e => setNewId(e.target.value)} onKeyDown={(e) => handleKeyDown(e, 'new-name')} placeholder="E.G. PRD-001" className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600 uppercase" />
+                    <input ref={productIdRef} id="new-id" type="text" value={newId} onChange={e => setNewId(e.target.value)} onKeyDown={(e) => handleKeyDown(e, 'new-name')} placeholder="E.G. PRD-001" className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600 uppercase" />
                 </div>
                 <div>
                     <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Product Name</label>

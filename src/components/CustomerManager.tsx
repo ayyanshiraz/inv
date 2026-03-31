@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Search, Zap, Save, Trash2, Edit } from 'lucide-react'
 import { saveCustomer, deleteCustomer } from '@/actions/actions'
 
@@ -20,6 +20,14 @@ export default function CustomerManager({ customers = [], categories = [] }: { c
   const [newPhone, setNewPhone] = useState('')
   const [newAddress, setNewAddress] = useState('')
   const [newBalance, setNewBalance] = useState('')
+
+  // Auto-focus ref for Customer ID input
+  const customerIdRef = useRef<HTMLInputElement>(null)
+
+  // Focus on Customer ID field when component mounts or after form reset
+  useEffect(() => {
+    customerIdRef.current?.focus()
+  }, [newId === '']) // Trigger focus when form is reset (newId becomes empty)
 
   const filteredCustomers = customers.filter(c => {
       const q = search.toLowerCase()
@@ -64,6 +72,9 @@ export default function CustomerManager({ customers = [], categories = [] }: { c
           
           handleCancelEdit()
           alert(editingOriginalId ? 'Customer updated successfully!' : 'Customer added successfully!')
+          
+          // Auto-focus Customer ID field after successful save
+          setTimeout(() => customerIdRef.current?.focus(), 100)
       } catch (err) {
           alert('Error saving customer.')
       } finally {
@@ -134,7 +145,7 @@ export default function CustomerManager({ customers = [], categories = [] }: { c
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div>
                     <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Customer ID (Optional)</label>
-                    <input id="new-c-id" type="text" value={newId} onChange={e => setNewId(e.target.value)} onKeyDown={(e) => handleKeyDown(e, 'new-c-name')} placeholder="E.G. 100" className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600 uppercase" />
+                    <input ref={customerIdRef} id="new-c-id" type="text" value={newId} onChange={e => setNewId(e.target.value)} onKeyDown={(e) => handleKeyDown(e, 'new-c-name')} placeholder="E.G. 100" className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600 uppercase" />
                 </div>
                 <div className="md:col-span-2">
                     <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Customer Name</label>
