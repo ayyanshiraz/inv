@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Printer, Trash2, Edit, Search, Zap, Save, MessageCircle, XCircle, Send, PlayCircle, Eye } from 'lucide-react'
-import { deleteInvoice, bulkUpdatePayments, bulkMakeActive } from '@/actions/actions'
+import { deleteInvoice, bulkUpdatePayments, bulkMakeActive, getCustomerInvoices } from '@/actions/actions'
 
 export default function InvoiceList({ invoices, categories, isHoldView = false }: { invoices: any[], categories: any[], isHoldView?: boolean }) {
   const [search, setSearch] = useState('')
@@ -68,7 +68,8 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
     else setSelectedIds([...selectedIds, id])
   }
 
-const handleIndividualWhatsApp = (inv: any) => {
+  // 🔴 TRUE LEDGER HISTORY INTEGRATED HERE
+  const handleIndividualWhatsApp = async (inv: any) => {
     if (!inv.customer.phone || inv.customer.phone.trim() === '') {
         alert(`Customer ${inv.customer.name} does not have a valid phone number saved.`);
         return;
@@ -77,10 +78,30 @@ const handleIndividualWhatsApp = (inv: any) => {
     if (phone.startsWith('0')) { phone = '92' + phone.substring(1); } 
     else if (phone.length === 10 && !phone.startsWith('92')) { phone = '92' + phone; }
 
+    // FETCH TRUE LEDGER HISTORY
+    const allCustInvoices = await getCustomerInvoices(inv.customerId);
+    const sortedInvs = allCustInvoices.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    
+    let runningBal = Number(inv.customer.openingBalance || 0);
+    let previous = runningBal;
+    let closing = runningBal;
+
+    for (const i of sortedInvs) {
+        let impact = 0;
+        if (i.isReturn) impact = -i.totalAmount;
+        else if (i.totalAmount === 0) impact = -( (i.paidAmount || 0) + (i.discountAmount || 0) );
+        else impact = i.totalAmount - (i.paidAmount || 0);
+
+        if (i.id === inv.id) {
+            previous = runningBal;
+            closing = runningBal + impact;
+            break;
+        }
+        runningBal += impact;
+    }
+
     const invoiceTotal = Number(inv.totalAmount);
     const paid = Number(inv.paidAmount || 0);
-    const closing = Number(inv.customerCurrentBalance || 0);
-    const previous = closing - (inv.isReturn ? -invoiceTotal : (invoiceTotal - paid));
 
     const displayId = /^\d+$/.test(inv.id) ? inv.id : inv.id.slice(-6).toUpperCase();
 
@@ -88,7 +109,6 @@ const handleIndividualWhatsApp = (inv: any) => {
         ? inv.items.map((item: any) => `- ${item.quantity}x ${item.product?.name || 'Item'} @ ${item.price} = ${(item.quantity * item.price).toLocaleString()}`).join('\n')
         : "No items";
 
-    // 🔴 RETURN HIGHLIGHT ADDED HERE
     const docType = inv.isReturn ? '🛑 *RETURN INVOICE*' : (isHoldView ? '📄 *QUOTATION*' : '🧾 *SALES INVOICE*');
 
     const text = `*FAHAD TRADERS*\n` +

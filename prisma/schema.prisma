@@ -40,7 +40,7 @@ model Product {
   category     String
   cost         Float         @default(0)
   price        Float         
-  stock        Int           @default(0)
+  stock        Float           @default(0)
   unit      String   @default("Bags") // ADD THIS LINE
   userId       String
   user         User          @relation(fields: [userId], references: [id])
@@ -70,7 +70,7 @@ model Invoice {
 // 5. Invoice Items
 model InvoiceItem {
   id        String  @id @unique @default(cuid())
-  quantity  Int
+  quantity  Float
   price     Float  
   
   invoiceId String

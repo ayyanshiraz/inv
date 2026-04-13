@@ -25,20 +25,31 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
 
   if (!invoice) return <div className="p-10 text-center font-bold">Invoice not found or unauthorized.</div>
 
+  // Fetch strictly previous invoices to calculate exact historical balance
   const prevInvoices = await prisma.invoice.findMany({
       where: { customerId: invoice.customerId, userId: session.userId, isHold: false, createdAt: { lt: invoice.createdAt } }
   })
 
+  // CRITICAL MATH FIX: Perfectly mirrors the Ledger logic
   let prevBalance = invoice.customer.openingBalance || 0;
   prevInvoices.forEach((inv: any) => {
-      if (inv.isReturn) prevBalance -= inv.totalAmount;
-      else prevBalance += (inv.totalAmount - (inv.paidAmount || 0));
+      if (inv.isReturn) {
+          prevBalance -= inv.totalAmount;
+      } else if (inv.totalAmount === 0) {
+          prevBalance -= ((inv.paidAmount || 0) + (inv.discountAmount || 0));
+      } else {
+          prevBalance += (inv.totalAmount - (inv.paidAmount || 0));
+      }
   })
 
   const subtotal = invoice.items.reduce((sum: number, item: any) => sum + (item.quantity * item.price), 0);
   const netTotal = invoice.totalAmount;
   const payment = invoice.paidAmount || 0;
-  const closingBalance = prevBalance + (invoice.isReturn ? -netTotal : netTotal) - payment;
+  
+  // Calculate final impact of THIS invoice
+  const currentImpact = invoice.isReturn ? -netTotal : netTotal;
+  const totalPayable = prevBalance + currentImpact;
+  const closingBalance = totalPayable - payment;
 
   const MIN_ROWS = 2; 
   const emptyRowsCount = Math.max(0, MIN_ROWS - invoice.items.length);
@@ -97,7 +108,6 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
                         <p className="font-bold text-[9px] mt-1 text-black uppercase tracking-widest">{repDetails.name} <span className="ml-1">{repDetails.phone}</span></p>
                     </div>
                     <div className="text-right font-bold text-black min-w-[110px]">
-                        {/* RETURN HIGHLIGHT ADDED HERE */}
                         {invoice.isReturn && <p style={{ margin: '0 0 2px 0', fontSize: '10px', fontWeight: 900, color: 'black', border: '1px solid black', padding: '2px 4px', display: 'inline-block', borderRadius: '4px' }}>RETURN INVOICE</p>}
                         <p className="mb-0.5 text-[15px] font-black">Inv# {displayId}</p>
                         <p className="text-[13px] m-0 font-black">Date: {displayDate}</p>
@@ -122,7 +132,6 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
                                         <tbody>
                                             <tr>
                                                 <td style={{ border: 'none', padding: '4px 6px', verticalAlign: 'top' }}>
-                                                    {/* OVERLAP FIX: Added paddingBottom and mt-1 */}
                                                     <h2 className="jameel-font" style={{ margin: 0, fontWeight: 900, fontSize: '16px', textTransform: 'uppercase', color: 'black', lineHeight: 1.4, textAlign: 'left', paddingBottom: '4px' }} dir="ltr">
                                                         {invoice.customer?.name || 'Unknown'}
                                                     </h2>
@@ -177,13 +186,20 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
                 </table>
 
                 <div className="block w-full mb-3">
-                    <table className="w-[190px] bold-border h-fit ml-auto bg-white text-[11px]">
+                    <table className="w-[200px] bold-border h-fit ml-auto bg-white text-[11px]">
                         <tbody>
                             <tr><td className="font-black w-24 border-b border-black py-1 px-2 flex justify-between items-center"><span>Subtotal:</span><span className="urdu-text text-[11px] ml-1">میزان</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">{subtotal.toLocaleString()}</td></tr>
+                            
                             {invoice.discountAmount > 0 && (<tr><td className="font-black border-b border-black py-1 px-2 flex justify-between items-center"><span>Discount:</span><span className="urdu-text text-[11px] ml-1">رعایت</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">- {invoice.discountAmount.toLocaleString()}</td></tr>)}
+                            
+                            <tr><td className="font-black border-b border-black py-1 px-2 flex justify-between items-center"><span>Net Total:</span><span className="urdu-text text-[11px] ml-1">خالص رقم</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">{netTotal.toLocaleString()}</td></tr>
+                            
                             <tr><td className="font-black border-b border-black py-1 px-2 flex justify-between items-center"><span>Prev. Bal:</span><span className="urdu-text text-[11px] ml-1">سابقہ بقایا</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">{prevBalance.toLocaleString()}</td></tr>
-                            <tr><td className="font-black border-b border-black py-1 px-2 flex justify-between items-center"><span>Total:</span><span className="urdu-text text-[11px] ml-1">کل رقم</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2 text-[12px]">{ (prevBalance + (invoice.isReturn ? -netTotal : netTotal)).toLocaleString() }</td></tr>
+                            
+                            <tr><td className="font-black border-b border-black py-1 px-2 flex justify-between items-center"><span>Total Payable:</span><span className="urdu-text text-[11px] ml-1">کل رقم</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2 text-[12px]">{totalPayable.toLocaleString()}</td></tr>
+                            
                             <tr><td className="font-black border-b border-black py-1 px-2 flex justify-between items-center"><span>Payment:</span><span className="urdu-text text-[11px] ml-1">وصول شدہ</span></td><td className="text-right font-black border-b border-black border-l-[1.5px] px-2">{payment.toLocaleString()}</td></tr>
+                            
                             <tr><td className="font-black py-1 px-2 flex justify-between items-center"><span>Balance:</span><span className="urdu-text text-[11px] ml-1">موجودہ بقایا</span></td><td className="text-right font-black border-l-[1.5px] px-2 text-[12px]">{closingBalance.toLocaleString()}</td></tr>
                         </tbody>
                     </table>
