@@ -326,23 +326,51 @@ export async function searchInvoices(query: string) {
 
 export async function getDashboardStats(from?: Date, to?: Date) {
   const userId = await getUser();
-  const dateFilter = (from && to) ? { createdAt: { gte: from, lte: to } } : {}
-  const invoices = await prisma.invoice.findMany({ where: { userId, ...dateFilter }, include: { items: { include: { product: true } } } })
-  let revenue = 0; let returns = 0; let costOfGoods = 0; let salesCount = 0; let holdCount = 0;
-  invoices.forEach((inv: any) => {
-    if (inv.isHold) { holdCount++; return; } 
-    if (inv.isReturn) returns += Number(inv.totalAmount)
-    else { revenue += Number(inv.totalAmount); salesCount++; inv.items.forEach((item: any) => costOfGoods += (Number(item.product?.cost || 0) * Number(item.quantity))) }
-  })
-  const customers = await prisma.customer.findMany({ where: { userId } }); const allInvoices = await prisma.invoice.findMany({ where: { userId, isHold: false } }) 
-  let totalReceivable = customers.reduce((sum: number, c: any) => sum + Number(c.openingBalance || 0), 0)
   
-  allInvoices.forEach((inv: any) => { 
-      if (inv.isReturn) totalReceivable -= Number(inv.totalAmount);
-      else if (inv.totalAmount === 0) totalReceivable -= (Number(inv.paidAmount || 0) + Number(inv.discountAmount || 0));
-      else totalReceivable += (Number(inv.totalAmount) - Number(inv.paidAmount || 0));
+  // 1. EXACT PERIOD MATH: Filters Revenue, Profit, Vouchers, and Period Receivables
+  const dateFilter = (from && to) ? { createdAt: { gte: from, lte: to } } : {}
+  const invoicesInPeriod = await prisma.invoice.findMany({ where: { userId, ...dateFilter }, include: { items: { include: { product: true } } } })
+  
+  let revenue = 0; let returns = 0; let costOfGoods = 0; let salesCount = 0; let holdCount = 0;
+  let voucherCount = 0; 
+  let periodReceivable = 0; // Net new debt generated strictly in this timeframe
+  
+  invoicesInPeriod.forEach((inv: any) => {
+    if (inv.isHold) { holdCount++; return; } 
+    if (inv.isReturn) {
+        returns += Number(inv.totalAmount);
+        periodReceivable -= Number(inv.totalAmount);
+    } else if (inv.totalAmount === 0) {
+        voucherCount++; 
+        periodReceivable -= (Number(inv.paidAmount || 0) + Number(inv.discountAmount || 0));
+    } else { 
+        revenue += Number(inv.totalAmount); 
+        salesCount++; 
+        inv.items.forEach((item: any) => costOfGoods += (Number(item.product?.cost || 0) * Number(item.quantity)));
+        periodReceivable += (Number(inv.totalAmount) - Number(inv.paidAmount || 0));
+    }
   })
-  return { revenue, returns, netRevenue: revenue - returns, profit: (revenue - returns) - costOfGoods, salesCount, holdCount, margin: revenue > 0 ? (((revenue - returns - costOfGoods) / (revenue - returns)) * 100).toFixed(1) : 0, customerCount: customers.length, totalReceivable }
+  
+  // 2. ALL TIME MATH: Calculates the true running market balance
+  const customers = await prisma.customer.findMany({ where: { userId } }); 
+  const allInvoices = await prisma.invoice.findMany({ where: { userId, isHold: false } }) 
+  
+  let trueMarketReceivable = customers.reduce((sum: number, c: any) => sum + Number(c.openingBalance || 0), 0)
+
+  allInvoices.forEach((inv: any) => { 
+      if (inv.isReturn) trueMarketReceivable -= Number(inv.totalAmount);
+      else if (inv.totalAmount === 0) trueMarketReceivable -= (Number(inv.paidAmount || 0) + Number(inv.discountAmount || 0));
+      else trueMarketReceivable += (Number(inv.totalAmount) - Number(inv.paidAmount || 0));
+  })
+  
+  return { 
+      revenue, returns, netRevenue: revenue - returns, profit: (revenue - returns) - costOfGoods, 
+      salesCount, holdCount, margin: revenue > 0 ? (((revenue - returns - costOfGoods) / (revenue - returns)) * 100).toFixed(1) : 0, 
+      customerCount: customers.length, 
+      totalReceivable: trueMarketReceivable, // All-Time Balance
+      periodReceivable,                      // Strictly Date Filtered Balance
+      voucherCount 
+  }
 }
 
 export async function getLedgerReportData(from?: Date, to?: Date) {

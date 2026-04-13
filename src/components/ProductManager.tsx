@@ -16,11 +16,12 @@ export default function ProductManager({ products = [], categories = [] }: { pro
   const [newId, setNewId] = useState('')
   const [newName, setNewName] = useState('')
   const [newCat, setNewCat] = useState('')
-  const [newUnit, setNewUnit] = useState('توڑے') 
+  const [newUnit, setNewUnit] = useState('توڑا') 
   const [newCost, setNewCost] = useState('')
   const [newPrice, setNewPrice] = useState('')
 
-  const units = ['توڑے', 'کلو', 'BAGS', 'KGS', 'CARTONS', 'PCS', 'DOZEN']
+  // 🔴 UPDATED: Strict Urdu Units
+  const units = ['توڑا', 'توڑی', 'کلو']
 
   const filteredProducts = products.filter(p => {
       const q = search.toLowerCase()
@@ -32,7 +33,7 @@ export default function ProductManager({ products = [], categories = [] }: { pro
       setNewId(p.id)
       setNewName(p.name)
       setNewCat(p.category || '')
-      setNewUnit(p.unit || 'توڑے')
+      setNewUnit(p.unit || 'توڑا')
       setNewCost(p.cost?.toString() || '0')
       setNewPrice(p.price?.toString() || '0')
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -41,7 +42,7 @@ export default function ProductManager({ products = [], categories = [] }: { pro
 
   const handleCancelEdit = () => {
       setEditingOriginalId('')
-      setNewId(''); setNewName(''); setNewCat(''); setNewUnit('توڑے'); setNewCost(''); setNewPrice('');
+      setNewId(''); setNewName(''); setNewCat(''); setNewUnit('توڑا'); setNewCost(''); setNewPrice('');
   }
 
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -81,7 +82,7 @@ export default function ProductManager({ products = [], categories = [] }: { pro
                   formData.append('id', p.id)
                   formData.append('name', p.name)
                   formData.append('category', p.category || '')
-                  formData.append('unit', p.unit || 'Bags')
+                  formData.append('unit', p.unit || 'توڑا')
                   formData.append('cost', updatedCost.toString())
                   formData.append('price', updatedPrice.toString())
                   
@@ -148,7 +149,8 @@ export default function ProductManager({ products = [], categories = [] }: { pro
                 </div>
                 <div>
                     <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Unit</label>
-                    <select id="new-unit" value={newUnit} onChange={e => setNewUnit(e.target.value)} onKeyDown={(e) => handleKeyDown(e, 'new-cost')} className="urdu-font text-left w-full p-3 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600 uppercase">
+                    {/* 🔴 UPDATED: Unit Dropdown RTL + Urdu Font */}
+                    <select id="new-unit" value={newUnit} onChange={e => setNewUnit(e.target.value)} onKeyDown={(e) => handleKeyDown(e, 'new-cost')} dir="rtl" className="urdu-font text-right text-lg w-full p-3 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600 uppercase pr-8">
                         {units.map(u => <option key={u} value={u}>{u}</option>)}
                     </select>
                 </div>
@@ -157,11 +159,11 @@ export default function ProductManager({ products = [], categories = [] }: { pro
             <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                     <label className="text-[10px] font-black uppercase text-emerald-700 mb-2 block">Cost Price (PKR)</label>
-                    <input id="new-cost" type="number" value={newCost} onChange={e => setNewCost(e.target.value)} onKeyDown={(e) => handleKeyDown(e, 'new-price')} placeholder="0" className="w-full p-3 bg-white border border-emerald-300 rounded-xl font-black text-slate-900 outline-none focus:border-emerald-600" />
+                    <input id="new-cost" type="number" step="any" value={newCost} onChange={e => setNewCost(e.target.value)} onKeyDown={(e) => handleKeyDown(e, 'new-price')} placeholder="0" className="w-full p-3 bg-white border border-emerald-300 rounded-xl font-black text-slate-900 outline-none focus:border-emerald-600" />
                 </div>
                 <div>
                     <label className="text-[10px] font-black uppercase text-emerald-700 mb-2 block">Selling Price (PKR)</label>
-                    <input id="new-price" type="number" value={newPrice} onChange={e => setNewPrice(e.target.value)} onKeyDown={(e) => handleKeyDown(e, 'submit')} placeholder="0" className="w-full p-3 bg-white border border-emerald-300 rounded-xl font-black text-emerald-700 outline-none focus:border-emerald-600" />
+                    <input id="new-price" type="number" step="any" value={newPrice} onChange={e => setNewPrice(e.target.value)} onKeyDown={(e) => handleKeyDown(e, 'submit')} placeholder="0" className="w-full p-3 bg-white border border-emerald-300 rounded-xl font-black text-emerald-700 outline-none focus:border-emerald-600" />
                 </div>
             </div>
 
@@ -209,11 +211,11 @@ export default function ProductManager({ products = [], categories = [] }: { pro
                                 <td className="p-4 font-mono text-xs uppercase">{p.id.slice(-6)}</td>
                                 <td className="p-4 urdu-font text-slate-900 font-black text-base" dir="ltr">{p.name}</td>
                                 <td className="p-4 urdu-font" dir="ltr">{p.category || '---'}</td>
-                                <td className="p-4 text-center"><span className="urdu-font text-left text-[10px] bg-slate-200 px-2 py-1 rounded text-slate-600">{p.unit}</span></td>
+                                <td className="p-4 text-center"><span className="urdu-font text-center text-sm bg-slate-200 px-3 py-1 rounded text-slate-800 font-black">{p.unit}</span></td>
                                 
                                 <td className={`p-4 text-right ${quickEditMode ? 'bg-orange-50' : ''}`}>
                                     {quickEditMode ? (
-                                        <input type="number" id={`cost-${index}`} className="w-24 p-2 text-right border-2 border-orange-300 rounded-lg font-black text-slate-900 outline-none focus:border-orange-600"
+                                        <input type="number" step="any" id={`cost-${index}`} className="w-24 p-2 text-right border-2 border-orange-300 rounded-lg font-black text-slate-900 outline-none focus:border-orange-600"
                                             value={draftCosts[p.id] !== undefined ? draftCosts[p.id] : p.cost}
                                             onChange={e => setDraftCosts({...draftCosts, [p.id]: Number(e.target.value)})}
                                             onFocus={e => e.target.select()}
@@ -224,7 +226,7 @@ export default function ProductManager({ products = [], categories = [] }: { pro
 
                                 <td className={`p-4 text-right ${quickEditMode ? 'bg-emerald-50' : ''}`}>
                                     {quickEditMode ? (
-                                        <input type="number" id={`price-${index}`} className="w-24 p-2 text-right border-2 border-emerald-300 rounded-lg font-black text-emerald-700 outline-none focus:border-emerald-600"
+                                        <input type="number" step="any" id={`price-${index}`} className="w-24 p-2 text-right border-2 border-emerald-300 rounded-lg font-black text-emerald-700 outline-none focus:border-emerald-600"
                                             value={draftPrices[p.id] !== undefined ? draftPrices[p.id] : p.price}
                                             onChange={e => setDraftPrices({...draftPrices, [p.id]: Number(e.target.value)})}
                                             onFocus={e => e.target.select()}

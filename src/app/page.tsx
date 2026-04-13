@@ -15,8 +15,21 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const pktNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Karachi' }));
   const todayStr = `${pktNow.getFullYear()}-${String(pktNow.getMonth()+1).padStart(2,'0')}-${String(pktNow.getDate()).padStart(2,'0')}`;
 
-  const fromStr = params.from || todayStr;
-  const toStr = params.to || todayStr;
+  const rawFrom = params.from || params.startDate;
+  const rawTo = params.to || params.endDate;
+
+  let fromStr = todayStr;
+  let toStr = todayStr;
+
+  // 🔴 ROBUST DATE PARSER: Prevents the DD/MM/YYYY vs YYYY-MM-DD browser crash
+  if (rawFrom) {
+      const parts = rawFrom.includes('/') ? rawFrom.split('/') : rawFrom.split('-');
+      fromStr = parts[0].length === 4 ? rawFrom : `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
+  if (rawTo) {
+      const parts = rawTo.includes('/') ? rawTo.split('/') : rawTo.split('-');
+      toStr = parts[0].length === 4 ? rawTo : `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
 
   const from = new Date(`${fromStr}T00:00:00+05:00`);
   const to = new Date(`${toStr}T23:59:59.999+05:00`);
@@ -34,7 +47,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             <p className="text-slate-500 font-bold text-sm">Business overview for selected period.</p>
           </div>
           
-          <DashboardFilter initialFrom={fromStr} initialTo={toStr} />
+          <DashboardFilter initialFrom={rawFrom || todayStr} initialTo={rawTo || todayStr} />
         </div>
 
         {/* QUICK ACTION SHORTCUTS */}
@@ -80,13 +93,24 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               </div>
           </div>
 
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center border-l-4 border-l-orange-500 hover:shadow-md transition">
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Receivables</p>
-                  <h2 className="text-xl font-black text-slate-900">PKR {stats.totalReceivable.toLocaleString()}</h2>
+          {/* 🔴 UPDATED: Highly Detailed Receivables Card */}
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-center border-l-4 border-l-orange-500 hover:shadow-md transition">
+              <div className="flex justify-between items-center w-full">
+                  <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1" title="Debt generated strictly in this period">Period Receivables</p>
+                      <h2 className="text-xl font-black text-slate-900">PKR {stats.periodReceivable.toLocaleString()}</h2>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+                      <ArrowLeftRight size={22} />
+                  </div>
               </div>
-              <div className="w-12 h-12 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center">
-                  <ArrowLeftRight size={22} />
+              <div className="mt-3 pt-3 border-t border-slate-100 flex justify-between items-center w-full">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Logged Vouchers</span>
+                  <span className="text-xs font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md">{stats.voucherCount || 0}</span>
+              </div>
+              <div className="mt-2 pt-2 border-t border-slate-100 flex justify-between items-center w-full">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest" title="Total all-time market balance">True Market Bal</span>
+                  <span className="text-xs font-black text-slate-600">PKR {stats.totalReceivable.toLocaleString()}</span>
               </div>
           </div>
 
