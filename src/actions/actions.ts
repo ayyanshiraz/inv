@@ -492,3 +492,11 @@ export async function updateVoucher(id: string, amount: number, voucherDate?: st
   await prisma.invoice.updateMany({ where: { id, userId, totalAmount: 0 }, data: dataToUpdate })
   revalidateAll()
 }
+export async function getWhatsAppLedgerHistory(customerId: string) {
+    const userId = await getUser();
+    // 🔴 FETCHES ALL ACTIVE INVOICES (Sales, Returns, and Vouchers)
+    return await prisma.invoice.findMany({ 
+        where: { customerId, userId, isHold: false }, 
+        orderBy: { createdAt: 'asc' } 
+    });
+}

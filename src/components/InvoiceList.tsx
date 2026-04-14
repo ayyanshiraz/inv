@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Printer, Trash2, Edit, Search, Zap, Save, MessageCircle, XCircle, Send, PlayCircle, Eye } from 'lucide-react'
-import { deleteInvoice, bulkUpdatePayments, bulkMakeActive, getCustomerInvoices } from '@/actions/actions'
+// 🔴 UPDATED: Using getWhatsAppLedgerHistory for flawless math
+import { deleteInvoice, bulkUpdatePayments, bulkMakeActive, getWhatsAppLedgerHistory } from '@/actions/actions'
 
 export default function InvoiceList({ invoices, categories, isHoldView = false }: { invoices: any[], categories: any[], isHoldView?: boolean }) {
   const [search, setSearch] = useState('')
@@ -68,63 +69,87 @@ export default function InvoiceList({ invoices, categories, isHoldView = false }
     else setSelectedIds([...selectedIds, id])
   }
 
-  // 🔴 TRUE LEDGER HISTORY INTEGRATED HERE
+  // 🔴 POPUP BLOCKER BYPASS INTEGRATED HERE (Protects both individual and bulk sends)
   const handleIndividualWhatsApp = async (inv: any) => {
     if (!inv.customer.phone || inv.customer.phone.trim() === '') {
         alert(`Customer ${inv.customer.name} does not have a valid phone number saved.`);
         return;
     }
+
+    // Open the new tab IMMEDIATELY on click to bypass browser popup blockers
+    const waWindow = window.open('about:blank', '_blank');
+    
+    if (!waWindow) {
+        alert("Your browser blocked the popup! Please allow popups for this site in your address bar.");
+        return;
+    }
+
+    // Show a loading state in the new tab
+    waWindow.document.write("<h2 style='font-family: sans-serif; padding: 20px; color: #334155;'>Loading Ledger Math... Please wait.</h2>");
+
     let phone = inv.customer.phone.replace(/\D/g, ''); 
     if (phone.startsWith('0')) { phone = '92' + phone.substring(1); } 
     else if (phone.length === 10 && !phone.startsWith('92')) { phone = '92' + phone; }
 
-    // FETCH TRUE LEDGER HISTORY
-    const allCustInvoices = await getCustomerInvoices(inv.customerId);
-    const sortedInvs = allCustInvoices.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    
-    let runningBal = Number(inv.customer.openingBalance || 0);
-    let previous = runningBal;
-    let closing = runningBal;
+    try {
+        // FETCH TRUE LEDGER HISTORY
+        const allCustInvoices = await getWhatsAppLedgerHistory(inv.customerId);
+        const sortedInvs = allCustInvoices.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        
+        let runningBal = Number(inv.customer.openingBalance || 0);
+        let previous = runningBal;
+        let closing = runningBal;
 
-    for (const i of sortedInvs) {
-        let impact = 0;
-        if (i.isReturn) impact = -i.totalAmount;
-        else if (i.totalAmount === 0) impact = -( (i.paidAmount || 0) + (i.discountAmount || 0) );
-        else impact = i.totalAmount - (i.paidAmount || 0);
+        for (const i of sortedInvs) {
+            let impact = 0;
+            if (i.isReturn) {
+                impact = -Number(i.totalAmount);
+            } else if (Number(i.totalAmount) === 0) {
+                impact = -(Number(i.paidAmount || 0) + Number(i.discountAmount || 0));
+            } else {
+                impact = Number(i.totalAmount) - Number(i.paidAmount || 0);
+            }
 
-        if (i.id === inv.id) {
-            previous = runningBal;
-            closing = runningBal + impact;
-            break;
+            if (i.id === inv.id) {
+                previous = runningBal;
+                closing = runningBal + impact;
+                break;
+            }
+            runningBal += impact;
         }
-        runningBal += impact;
+
+        const invoiceTotal = Number(inv.totalAmount);
+        const paid = Number(inv.paidAmount || 0);
+
+        const displayId = /^\d+$/.test(inv.id) ? inv.id : inv.id.slice(-6).toUpperCase();
+
+        let itemsText = inv.items.length > 0 
+            ? inv.items.map((item: any) => `- ${item.quantity}x ${item.product?.name || 'Item'} @ ${item.price} = ${(item.quantity * item.price).toLocaleString()}`).join('\n')
+            : "No items";
+
+        const docType = inv.isReturn ? '🛑 *RETURN INVOICE*' : (isHoldView ? '📄 *QUOTATION*' : '🧾 *SALES INVOICE*');
+
+        const text = `*FAHAD TRADERS*\n` +
+                     `${docType} #: ${displayId}\n` +
+                     `Date: ${new Date(inv.createdAt).toLocaleDateString('en-GB')}\n` +
+                     `------------------------\n` +
+                     `*Items:*\n${itemsText}\n` +
+                     `------------------------\n` +
+                     `Net Total: PKR ${invoiceTotal.toLocaleString()}\n` +
+                     `Paid: PKR ${paid.toLocaleString()}\n` +
+                     `------------------------\n` +
+                     `Previous Balance: PKR ${previous.toLocaleString()}\n` +
+                     `*Closing Balance: PKR ${closing.toLocaleString()}*`;
+
+        const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`;
+        
+        // Push the WhatsApp URL to the blank tab
+        waWindow.location.href = url;
+
+    } catch (error) {
+        waWindow.close();
+        alert("An error occurred while calculating the ledger math.");
     }
-
-    const invoiceTotal = Number(inv.totalAmount);
-    const paid = Number(inv.paidAmount || 0);
-
-    const displayId = /^\d+$/.test(inv.id) ? inv.id : inv.id.slice(-6).toUpperCase();
-
-    let itemsText = inv.items.length > 0 
-        ? inv.items.map((item: any) => `- ${item.quantity}x ${item.product?.name || 'Item'} @ ${item.price} = ${(item.quantity * item.price).toLocaleString()}`).join('\n')
-        : "No items";
-
-    const docType = inv.isReturn ? '🛑 *RETURN INVOICE*' : (isHoldView ? '📄 *QUOTATION*' : '🧾 *SALES INVOICE*');
-
-    const text = `*FAHAD TRADERS*\n` +
-                 `${docType} #: ${displayId}\n` +
-                 `Date: ${new Date(inv.createdAt).toLocaleDateString('en-GB')}\n` +
-                 `------------------------\n` +
-                 `*Items:*\n${itemsText}\n` +
-                 `------------------------\n` +
-                 `Net Total: PKR ${invoiceTotal.toLocaleString()}\n` +
-                 `Paid: PKR ${paid.toLocaleString()}\n` +
-                 `------------------------\n` +
-                 `Previous Balance: PKR ${previous.toLocaleString()}\n` +
-                 `*Closing Balance: PKR ${closing.toLocaleString()}*`;
-
-    const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
   }
   
   const handleBulkWhatsApp = () => {
